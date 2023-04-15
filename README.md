@@ -1,6 +1,6 @@
 # Cryo2Grid
 
-A tool to (currently) read DSN6 (and eventually MRC etc.) crystallography and cryo-EM files and interpolate their density value onto a cartesian grid map as used by AutoDock software.
+A tool to (currently) read DSN6 (and eventually MRC etc.) crystallography and cryo-EM files and interpolate their density values onto a cartesian grid map as used by AutoDock software.
 
 # Build instructions
 
