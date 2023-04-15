@@ -9,9 +9,11 @@ On most platforms only "make" should be needed. On macOS the compiler in the Mak
 # Syntax
 
 Cryo2Grid needs parameters for the density map file, grid map center x, y, z coordinates, grid map x, y, z dimensions, and optionally the grid spacing (default is 0.375 A):
+
 `./cryo2grid <map file> <center x> <center y> <center z> <x dim> <y dim> <z dim> <optional: grid spacing (default: 0.375)>`
 
 Once built to test everything works the following command can be used:
+
 `./cryo2grid example/*.dsn6 42.43 41.664 10.503 40 40 40`
 
 It should produce the grid map file `1d3g_2fofc.map` in the `./example` folder and similar output:
