@@ -4,7 +4,7 @@ A tool to (currently) read DSN6 (and eventually MRC etc.) crystallography and cr
 
 # Build instructions
 
-On most platforms only "make" should be needed. On macOS the compiler in the Makefile needs to be changed to `clang++`.
+On most platforms only "make" should be needed. On macOS the compiler in the Makefile may need to be changed to `clang++`.
 
 # Syntax
 
