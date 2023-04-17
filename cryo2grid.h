@@ -98,6 +98,55 @@ inline std::string num2str(fp_num num)
 	return to_string(l) + "." + to_string((long)fastfloor((num-l)*1000+0.5));
 }
 
+inline char* find_block(char* &brix_string)
+{
+	while(*brix_string == ' ') brix_string++; // remove white-space
+	char* start = brix_string; // number begins here
+	while(*brix_string != ' ') brix_string++; // find next space
+	*brix_string++ = '\0'; // end number string and advance to next spot
+	return start;
+}
+
+inline int brix_number(char* &brix_string)
+{
+	return stoi(find_block(brix_string));
+}
+
+inline fp_num brix_float(char* &brix_string)
+{
+	return stof(find_block(brix_string));
+}
+
+inline bool brix_entry(char* &brix_string, const char* name, bool report_error = true)
+{
+	bool success = true;
+	while(*brix_string == ' ') brix_string++; // remove white-space
+	unsigned int count = 0;
+	unsigned int nlen  = strlen(name);
+	while(*brix_string != ' '){ // find next space ...
+		if(count >= nlen){
+			success = false;
+			break;
+		}
+		if(toupper(name[count])!=toupper(*brix_string)){
+			success = false;
+			break;
+		}
+		brix_string++;
+		count++;
+	}
+	if(report_error){
+		if(!success){
+			cout << "\nERROR: Brix \"" << name << "\"entry not found.\n";
+			exit(37);
+		}
+		*brix_string++ = '\0'; // end number string and advance to next spot
+	}
+	return success;
+}
+
+#define next_entry(name) { if(BRIX) brix_entry(brix_header, name, true); }
+
 inline std::vector<fp_num> read_dsn6(
                                      std::string   filename,
                                      fp_num        map_x_center,
@@ -115,10 +164,10 @@ inline std::vector<fp_num> read_dsn6(
 	
 	std::vector<fp_num> densities;
 	
-	cout << "Reading DSN6 map file " << filename << "\n";
+	cout << "Reading map file " << filename << "\n";
 	std::ifstream map_file(filename, std::ifstream::binary);
 	if(map_file.fail()){
-		cout << "\nERROR: Can't open DSN6 map file " << filename << ".\n";
+		cout << "\nERROR: Can't open map file " << filename << ".\n";
 		exit(2);
 	}
 	std::streamoff filesize = map_file.tellg();
@@ -127,25 +176,39 @@ inline std::vector<fp_num> read_dsn6(
 	map_file.seekg(0, std::ios::beg);
 	cout << "\t-> file size: " << filesize << "\n";
 	char header[DSN6_BLOCKSIZE];
+	char* brix_header = header;
+	bool BRIX = false;
 	if(!map_file.read(header, DSN6_BLOCKSIZE)){
-		cout << "\nERROR: Can't reader DSN6 header.\n";
+		cout << "\nERROR: Can't reader header.\n";
 		exit(3);
 	}
-	
+	if(brix_entry(brix_header, ":-)",false)){
+		BRIX = true;
+	}
 	short int norm       = *(reinterpret_cast<short int*>(header+36));
 	bool endian_swap     = (norm != 100);
 	norm                 = read_short(header+36);
-	if(norm != 100){
+	if((norm != 100) && !BRIX){
 		cout << "\nERROR: File is not a valid DSN6 file.\n";
 		exit(4);
 	}
-	cout << "\t-> endian swap: " << endian_swap << ", Norm: " << norm << "\n";
-	fp_num x_start       = read_short(header);
-	fp_num y_start       = read_short(header+2);
-	fp_num z_start       = read_short(header+4);
-	unsigned int x_dim   = read_short(header+6);
-	unsigned int y_dim   = read_short(header+8);
-	unsigned int z_dim   = read_short(header+10);
+	if(BRIX && (norm == 100)){ // found the one DSN6 file whose origin encodes a smiley
+		BRIX=false;
+	}
+	if(BRIX){
+		endian_swap = false;
+		norm = 1;
+		cout << "\t-> BRIX format\n";
+	} else cout << "\t-> endian swap: " << endian_swap << ", Norm: " << norm << "\n";
+	
+	next_entry("origin");
+	fp_num x_start       = BRIX ? brix_number(brix_header) : read_short(header);
+	fp_num y_start       = BRIX ? brix_number(brix_header) : read_short(header+2);
+	fp_num z_start       = BRIX ? brix_number(brix_header) : read_short(header+4);
+	next_entry("extent");
+	unsigned int x_dim   = BRIX ? brix_number(brix_header) : read_short(header+6);
+	unsigned int y_dim   = BRIX ? brix_number(brix_header) : read_short(header+8);
+	unsigned int z_dim   = BRIX ? brix_number(brix_header) : read_short(header+10);
 	unsigned long xy_stride      = x_dim * y_dim;
 	unsigned int x_file_stride   = (((x_dim&7)>0) + (x_dim>>3)) << 6;
 	unsigned int xy_file_stride  = x_file_stride * (((y_dim&7)>0) + (y_dim>>3)) << 3;
@@ -154,28 +217,34 @@ inline std::vector<fp_num> read_dsn6(
 		cout << "\nERROR: Not enough data blocks in provided DSN6 file.\n";
 		exit(5);
 	}
-	fp_num inv_x_step    = read_short(header+12);
-	fp_num inv_y_step    = read_short(header+14);
-	fp_num inv_z_step    = read_short(header+16);
+	next_entry("grid");
+	fp_num inv_x_step    = BRIX ? brix_number(brix_header) : read_short(header+12);
+	fp_num inv_y_step    = BRIX ? brix_number(brix_header) : read_short(header+14);
+	fp_num inv_z_step    = BRIX ? brix_number(brix_header) : read_short(header+16);
 	fp_num x_step        = 1.0 / inv_x_step;
 	fp_num y_step        = 1.0 / inv_y_step;
 	fp_num z_step        = 1.0 / inv_z_step;
-	fp_num a_unit        = read_short(header+18);
-	fp_num b_unit        = read_short(header+20);
-	fp_num c_unit        = read_short(header+22);
-	fp_num alpha         = read_short(header+24);
-	fp_num beta          = read_short(header+26);
-	fp_num gamma         = read_short(header+28);
-	fp_num rho_scale     = norm / ((fp_num)read_short(header+30));
-	fp_num offset        = read_short(header+32);
-	fp_num unit_scale    = 1.0 / read_short(header+34);
+	next_entry("cell");
+	fp_num a_unit        = BRIX ? brix_float(brix_header) : read_short(header+18);
+	fp_num b_unit        = BRIX ? brix_float(brix_header) : read_short(header+20);
+	fp_num c_unit        = BRIX ? brix_float(brix_header) : read_short(header+22);
+	fp_num alpha         = BRIX ? brix_float(brix_header) : read_short(header+24);
+	fp_num beta          = BRIX ? brix_float(brix_header) : read_short(header+26);
+	fp_num gamma         = BRIX ? brix_float(brix_header) : read_short(header+28);
+	next_entry("prod");
+	fp_num rho_scale     = norm / (BRIX ? brix_float(brix_header) : (fp_num)read_short(header+30));
+	next_entry("plus");
+	fp_num offset        = BRIX ? brix_float(brix_header) : read_short(header+32);
 	
-	a_unit              *= unit_scale;
-	b_unit              *= unit_scale;
-	c_unit              *= unit_scale;
-	alpha               *= unit_scale;
-	beta                *= unit_scale;
-	gamma               *= unit_scale;
+	if(!BRIX){
+		fp_num unit_scale    = 1.0 / read_short(header+34);
+		a_unit              *= unit_scale;
+		b_unit              *= unit_scale;
+		c_unit              *= unit_scale;
+		alpha               *= unit_scale;
+		beta                *= unit_scale;
+		gamma               *= unit_scale;
+	}
 	cout << "\t-> x_dim = " << x_dim << ", y_dim = " << y_dim << ", z_dim = " << z_dim << "\n";
 	cout << "\t-> a_unit = " << a_unit << ", b_unit = " << b_unit << ", c_unit = " << c_unit << "\n";
 	cout << "\t-> alpha = " << alpha << ", beta = " << beta << ", gamma = " << gamma << "\n";
