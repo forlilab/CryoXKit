@@ -326,7 +326,8 @@ inline std::vector<fp_num> read_map(
 		next_entry("plus");
 		offset        = read_entry(header, float);
 	}
-	fp_num rho_min, rho_max, rho_avg, rho_std;
+	fp_num rho_min, rho_max;
+	double rho_avg, rho_std;
 	bool calc_rho_stat = true;
 	if(map_type == mrc){ // http://situs.biomachina.org/fmap.pdf
 		if((x_start==0) && (y_start==0) && (z_start==0)){
