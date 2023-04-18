@@ -69,17 +69,18 @@ int main(int argc, const char* argv[])
 		exit(1);
 	}
 	
-	std::vector<fp_num> density = read_dsn6(
-	                                        map_file,
-	                                        X_center,
-	                                        Y_center,
-	                                        Z_center,
-	                                        X_dim,
-	                                        Y_dim,
-	                                        Z_dim,
-	                                        grid_spacing,
-	                                        true
-	                                       );
+	std::vector<fp_num> density = read_map(
+	                                       map_file,
+	                                       automatic,
+	                                       X_center,
+	                                       Y_center,
+	                                       Z_center,
+	                                       X_dim,
+	                                       Y_dim,
+	                                       Z_dim,
+	                                       grid_spacing,
+	                                       true
+	                                      );
 	
 	return 0;
 }

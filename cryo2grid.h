@@ -36,6 +36,18 @@ using namespace std;
 #include <sys/time.h>
 #endif
 
+enum map_types_supported{
+	automatic = 0,
+	dsn6      = 1,
+	dsn6_swap = 2,
+	brix      = 3,
+	mrc       = 4
+};
+
+//                              origin       extent     grid      cell axes    angles     start      min, max, avg, std
+//                                                                                     (if, origin=0)
+const int mrc_offsets[22] = {196, 200, 204, 0, 4, 8, 28, 32, 36, 40, 44, 48, 52, 56, 60, 16, 20, 24, 76, 80, 84, 216};
+
 template<typename T>
 inline double seconds_since(T& time_start)
 {
@@ -58,7 +70,13 @@ inline void start_timer(T& time_start)
 #endif
 }
 
-#define short_swap(byte_data) ((short int)((*((unsigned char*)byte_data)<<8) | *((unsigned char*)byte_data+1)))
+static unsigned short static_one = 1;
+#define HOST_LITTLE_ENDIAN (*(unsigned char*)&static_one == 1)
+
+#define swap_32bit(byte_data) (HOST_LITTLE_ENDIAN ? (int)((*((unsigned char*)byte_data)<<24) | (*((unsigned char*)byte_data+1)<<16) | (*((unsigned char*)byte_data+2)<<8) | (*((unsigned char*)byte_data+3))) : (int)(*((unsigned char*)byte_data) | (*((unsigned char*)byte_data+1)<<8)  |(*((unsigned char*)byte_data+2)<<16) | (*((unsigned char*)byte_data+3)<<24)))
+#define read_32bit(byte_data) (endian_swap ? &(tempval = swap_32bit(byte_data)) : &(tempval = *(reinterpret_cast<int*>(byte_data))))
+
+#define short_swap(byte_data) (HOST_LITTLE_ENDIAN ? (short int)((*((unsigned char*)byte_data)<<8) | *((unsigned char*)byte_data+1)) : (short int)(*((unsigned char*)byte_data) | (*((unsigned char*)byte_data+1)<<8)))
 #define read_short(byte_data) (endian_swap ? short_swap(byte_data) : *(reinterpret_cast<short int*>(byte_data)))
 
 #define PI 3.14159265358979323846
@@ -107,14 +125,14 @@ inline char* find_block(char* &brix_string)
 	return start;
 }
 
-inline int brix_number(char* &brix_string)
-{
-	return stoi(find_block(brix_string));
-}
-
-inline fp_num brix_float(char* &brix_string)
+inline fp_num brix_number_float(char* &brix_string)
 {
 	return stof(find_block(brix_string));
+}
+
+inline int brix_number_int(char* &brix_string)
+{
+	return stoi(find_block(brix_string));
 }
 
 inline bool brix_entry(char* &brix_string, const char* name, bool report_error = true)
@@ -145,19 +163,67 @@ inline bool brix_entry(char* &brix_string, const char* name, bool report_error =
 	return success;
 }
 
-#define next_entry(name) { if(BRIX) brix_entry(brix_header, name, true); }
+#define next_entry(name) { if(map_type == brix) brix_entry(header, name, true); }
 
-inline std::vector<fp_num> read_dsn6(
-                                     std::string   filename,
-                                     fp_num        map_x_center,
-                                     fp_num        map_y_center,
-                                     fp_num        map_z_center,
-                                     unsigned int  map_x_dim,
-                                     unsigned int  map_y_dim,
-                                     unsigned int  map_z_dim,
-                                     fp_num        grid_spacing,
-                                     bool          write_map = false
-                                    )
+#define read_entry(header,type) ((map_type < 3) ? read_short(header+2*data_count) : ((map_type < 4) ? brix_number_##type(header) : *(reinterpret_cast<type*>(read_32bit(header+mrc_offsets[data_count])))));data_count++
+
+#define read_mrc(result, data) {                                                  \
+	switch(mrc_mode){                                                         \
+		case 0: /* signed 8-bit  char */                                  \
+		        result = *(data);                                         \
+		        data_count++;                                             \
+		        break;                                                    \
+		case 1: /* signed 16-bit short int */                             \
+		        result = read_short(data);                                \
+		        data_count+=2;                                            \
+		        break;                                                    \
+		case 2: /* 32-bit float */                                        \
+		        result = *(reinterpret_cast<float*>(read_32bit(data)));   \
+		        data_count+=4;                                            \
+		        break;                                                    \
+	}                                                                         \
+}
+
+inline int determine_map_type(char* &header)
+{
+	int map_type = automatic;
+	bool BRIX = false;
+	if((header[208]=='M') && (header[209]=='A') && (header[210]=='P')){
+		map_type = mrc;
+		return map_type;
+	}
+	
+	short int norm       = *(reinterpret_cast<short int*>(header+36));
+	bool endian_swap     = (norm != 100);
+	norm                 = read_short(header+36);
+	if(norm == 100){
+		map_type     = dsn6;
+		if(endian_swap) map_type = dsn6_swap;
+	}
+	if(brix_entry(header, ":-)",false)){
+		BRIX = true;
+	}
+	if(BRIX && (norm == 100)){ // found the one map file whose origin encodes a smiley but that isn't a BRIX file
+		BRIX=false;
+	}
+	if(BRIX){
+		map_type    = brix;
+	}
+	return map_type;
+}
+
+inline std::vector<fp_num> read_map(
+                                    std::string   filename,
+                                    int           map_type,
+                                    fp_num        map_x_center,
+                                    fp_num        map_y_center,
+                                    fp_num        map_z_center,
+                                    unsigned int  map_x_dim,
+                                    unsigned int  map_y_dim,
+                                    unsigned int  map_z_dim,
+                                    fp_num        grid_spacing,
+                                    bool          write_map = false
+                                   )
 {
 	timeval runtime;
 	start_timer(runtime);
@@ -174,70 +240,113 @@ inline std::vector<fp_num> read_dsn6(
 	map_file.seekg(0, std::ios::end);
 	filesize = map_file.tellg() - filesize;
 	map_file.seekg(0, std::ios::beg);
-	cout << "\t-> file size: " << filesize << "\n";
-	char header[DSN6_BLOCKSIZE];
-	char* brix_header = header;
-	bool BRIX = false;
-	if(!map_file.read(header, DSN6_BLOCKSIZE)){
+	char map_header[DSN6_BLOCKSIZE];
+	if(!map_file.read(map_header, DSN6_BLOCKSIZE)){
 		cout << "\nERROR: Can't reader header.\n";
 		exit(3);
 	}
-	if(brix_entry(brix_header, ":-)",false)){
-		BRIX = true;
+	char* header = map_header;
+	if(map_type == automatic) map_type = determine_map_type(header);
+	unsigned int norm       = 1;
+	unsigned int header_end = DSN6_BLOCKSIZE;
+	bool endian_swap        = false;
+	int mrc_mode            = -1;
+	int tempval;
+	switch(map_type){
+		case dsn6_swap: endian_swap = true;
+		case dsn6:      cout << "\t-> DSN6";
+		                norm = 100;
+		                break;
+		case brix:      cout << "\t-> BRIX";
+		                break;
+		case mrc:       cout << "\t-> MRC";
+		                header_end  = 1024;
+		                if(*((char*)&norm) != (*header || *(header+1))) endian_swap = true;
+		                header_end += *(reinterpret_cast<int*>(read_32bit(header+92)));
+		                mrc_mode    = *(reinterpret_cast<int*>(read_32bit(header+12)));
+		                break;
+		default:
+		case automatic: cout << "\nERROR: Unknown map file type.\n";
+		                exit(42);
 	}
-	short int norm       = *(reinterpret_cast<short int*>(header+36));
-	bool endian_swap     = (norm != 100);
-	norm                 = read_short(header+36);
-	if((norm != 100) && !BRIX){
-		cout << "\nERROR: File is not a valid DSN6 file.\n";
-		exit(4);
-	}
-	if(BRIX && (norm == 100)){ // found the one DSN6 file whose origin encodes a smiley
-		BRIX=false;
-	}
-	if(BRIX){
-		endian_swap = false;
-		norm = 1;
-		cout << "\t-> BRIX format\n";
-	} else cout << "\t-> endian swap: " << endian_swap << ", Norm: " << norm << "\n";
+	cout << (endian_swap ?" endian-swapped":"") << ", file size: " << filesize << "\n";
 	
+	unsigned int data_count = 0;
 	next_entry("origin");
-	fp_num x_start       = BRIX ? brix_number(brix_header) : read_short(header);
-	fp_num y_start       = BRIX ? brix_number(brix_header) : read_short(header+2);
-	fp_num z_start       = BRIX ? brix_number(brix_header) : read_short(header+4);
+	fp_num x_start       = read_entry(header, int);
+	fp_num y_start       = read_entry(header, int);
+	fp_num z_start       = read_entry(header, int);
 	next_entry("extent");
-	unsigned int x_dim   = BRIX ? brix_number(brix_header) : read_short(header+6);
-	unsigned int y_dim   = BRIX ? brix_number(brix_header) : read_short(header+8);
-	unsigned int z_dim   = BRIX ? brix_number(brix_header) : read_short(header+10);
+	unsigned int x_dim   = read_entry(header, int);
+	unsigned int y_dim   = read_entry(header, int);
+	unsigned int z_dim   = read_entry(header, int);
 	unsigned long xy_stride      = x_dim * y_dim;
 	unsigned int x_file_stride   = (((x_dim&7)>0) + (x_dim>>3)) << 6;
 	unsigned int xy_file_stride  = x_file_stride * (((y_dim&7)>0) + (y_dim>>3)) << 3;
-	std::streamoff size_expected = xy_file_stride * (((z_dim&7)>0) + (z_dim>>3)) + 512;
+	std::streamoff size_expected = xy_file_stride * (((z_dim&7)>0) + (z_dim>>3)) + header_end;
+	if(mrc_mode>=0){ // reading mrc file
+		x_file_stride  = x_dim;
+		xy_file_stride = xy_stride;
+		switch(mrc_mode){
+			case 0: break;
+			case 1: x_file_stride <<= 1;
+			        xy_file_stride <<= 1;
+			        break;
+			case 2: x_file_stride <<= 2;
+			        xy_file_stride <<= 2;
+			        break;
+			default: cout << "ERROR: Only mode 0, 1, 2 are supported for CCP4/MRC map files.\n";
+			         exit(33);
+		}
+		size_expected = xy_file_stride * z_dim + header_end;
+	}
 	if(filesize < size_expected){
 		cout << "\nERROR: Not enough data blocks in provided DSN6 file.\n";
 		exit(5);
 	}
 	next_entry("grid");
-	fp_num inv_x_step    = BRIX ? brix_number(brix_header) : read_short(header+12);
-	fp_num inv_y_step    = BRIX ? brix_number(brix_header) : read_short(header+14);
-	fp_num inv_z_step    = BRIX ? brix_number(brix_header) : read_short(header+16);
+	fp_num inv_x_step    = read_entry(header, int);
+	fp_num inv_y_step    = read_entry(header, int);
+	fp_num inv_z_step    = read_entry(header, int);
 	fp_num x_step        = 1.0 / inv_x_step;
 	fp_num y_step        = 1.0 / inv_y_step;
 	fp_num z_step        = 1.0 / inv_z_step;
 	next_entry("cell");
-	fp_num a_unit        = BRIX ? brix_float(brix_header) : read_short(header+18);
-	fp_num b_unit        = BRIX ? brix_float(brix_header) : read_short(header+20);
-	fp_num c_unit        = BRIX ? brix_float(brix_header) : read_short(header+22);
-	fp_num alpha         = BRIX ? brix_float(brix_header) : read_short(header+24);
-	fp_num beta          = BRIX ? brix_float(brix_header) : read_short(header+26);
-	fp_num gamma         = BRIX ? brix_float(brix_header) : read_short(header+28);
-	next_entry("prod");
-	fp_num rho_scale     = norm / (BRIX ? brix_float(brix_header) : (fp_num)read_short(header+30));
-	next_entry("plus");
-	fp_num offset        = BRIX ? brix_float(brix_header) : read_short(header+32);
+	fp_num a_unit        = read_entry(header, float);
+	fp_num b_unit        = read_entry(header, float);
+	fp_num c_unit        = read_entry(header, float);
+	fp_num alpha         = read_entry(header, float);
+	fp_num beta          = read_entry(header, float);
+	fp_num gamma         = read_entry(header, float);
+	fp_num rho_scale     = 1;
+	fp_num offset        = 0;
+	if(map_type<4){
+		next_entry("prod");
+		rho_scale     = norm / read_entry(header, float);
+		next_entry("plus");
+		offset        = read_entry(header, float);
+	}
+	fp_num rho_min, rho_max, rho_avg, rho_std;
+	bool calc_rho_stat = true;
+	if(map_type == mrc){ // http://situs.biomachina.org/fmap.pdf
+		if((x_start==0) && (y_start==0) && (z_start==0)){
+			x_start = read_entry(header, float);
+			y_start = read_entry(header, float);
+			z_start = read_entry(header, float);
+		} else{
+			x_start *= inv_x_step / a_unit;
+			y_start *= inv_y_step / b_unit;
+			z_start *= inv_z_step / c_unit;
+		}
+		rho_min = read_entry(header, float);
+		rho_max = read_entry(header, float);
+		rho_avg = read_entry(header, float);
+		rho_std = read_entry(header, float);
+		calc_rho_stat = !((rho_min < rho_max) && (rho_min <= rho_avg) && (rho_avg <= rho_max) && (rho_std > 0));
+	}
 	
-	if(!BRIX){
-		fp_num unit_scale    = 1.0 / read_short(header+34);
+	if(map_type<3){
+		fp_num unit_scale    = 1.0 / read_entry(header, int);
 		a_unit              *= unit_scale;
 		b_unit              *= unit_scale;
 		c_unit              *= unit_scale;
@@ -302,6 +411,7 @@ inline std::vector<fp_num> read_dsn6(
 	fp_num density_z_end   = (z_start + z_dim - 1)  * z_step;
 	f2c(density_x_start, density_y_start, density_z_start);
 	f2c(density_x_end, density_y_end, density_z_end);
+	cout.precision(3);
 	cout << "\t-> density coordinate range: (" << density_x_start << ", " << density_y_start << ", " << density_z_start << ") A to (" << density_x_end << ", " << density_y_end << ", " << density_z_end << ") A\n";
 	fp_num map_x_start  = map_x_center - map_x_dim * grid_spacing * 0.5;
 	fp_num map_y_start  = map_y_center - map_y_dim * grid_spacing * 0.5;
@@ -319,34 +429,73 @@ inline std::vector<fp_num> read_dsn6(
 	densities.resize(xy_stride*z_dim);
 	
 	fp_num rho;
-	fp_num rho_min = 255*rho_scale;
-	fp_num rho_max = 0;
-	unsigned z_block, y_block, x_block, data_offset;
+	if(calc_rho_stat){
+		rho_min = 1e80;
+		rho_max = 0;
+		rho_avg = 0;
+		rho_std = 0;
+	}
+	
+	map_file.seekg(header_end);
 	char* data_block     = new char[xy_file_stride];
-	for(unsigned int z = 0; z < z_dim; z += 8){ // z slow
-		z_block = std::min(z_dim - z, 8u);
-		map_file.read(data_block, xy_file_stride);
-		data_offset = 0;
-		for(unsigned int y = 0; y < y_dim; y += 8){ // y medium
-			y_block = std::min(y_dim - y, 8u);
-			for(unsigned int x = 0; x < x_dim; x += 8){ // x fast
-				x_block = std::min(x_dim - x, 8u);
-				for(unsigned int xb = 0; xb < x_block; xb++){
-					for(unsigned int yb = 0; yb < y_block; yb++){
-						for(unsigned int zb = 0; zb < z_block; zb++){
-							rho = (((unsigned char)data_block[data_offset+((xb+(yb<<3)+(zb<<6))^endian_swap)])-offset)*rho_scale;
-							densities[xyz_idx(x+xb, y+yb, z+zb)] = rho;
-							rho_min = std::min(rho, rho_min);
-							rho_max = std::max(rho, rho_max);
+	if(map_type < 4){ // DSN6 and BRIX
+		unsigned z_block, y_block, x_block, data_offset;
+		for(unsigned int z = 0; z < z_dim; z += 8){ // z slow
+			z_block = std::min(z_dim - z, 8u);
+			map_file.read(data_block, xy_file_stride);
+			data_offset = 0;
+			for(unsigned int y = 0; y < y_dim; y += 8){ // y medium
+				y_block = std::min(y_dim - y, 8u);
+				for(unsigned int x = 0; x < x_dim; x += 8){ // x fast
+					x_block = std::min(x_dim - x, 8u);
+					for(unsigned int xb = 0; xb < x_block; xb++){
+						for(unsigned int yb = 0; yb < y_block; yb++){
+							for(unsigned int zb = 0; zb < z_block; zb++){
+								rho = (((unsigned char)data_block[data_offset+((xb+(yb<<3)+(zb<<6))^endian_swap)])-offset)*rho_scale;
+								densities[xyz_idx(x+xb, y+yb, z+zb)] = rho;
+								rho_min  = std::min(rho, rho_min);
+								rho_max  = std::max(rho, rho_max);
+								rho_avg += rho;
+								rho_std += rho*rho;
+							}
 						}
 					}
+					data_offset += 512;
 				}
-				data_offset += 512;
+			}
+		}
+	} else{
+		for(unsigned int z = 0; z < z_dim; z++){ // z slow
+			map_file.read(data_block, xy_file_stride);
+			data_count = 0;
+			for(unsigned int y = 0; y < y_dim; y++){ // y medium
+				for(unsigned int x = 0; x < x_dim; x++){ // x fast
+					read_mrc(rho, data_block+data_count);
+					densities[xyz_idx(x, y, z)] = rho;
+					rho_min = std::min(rho, rho_min);
+					rho_max = std::max(rho, rho_max);
+					if(calc_rho_stat){
+						rho_avg += rho;
+						rho_std += rho*rho;
+					}
+				}
 			}
 		}
 	}
-	cout << "\t-> density range: " << rho_min << " to " << rho_max << "\n";
 	delete[] data_block;
+	if(calc_rho_stat){
+		rho_avg /= x_dim * y_dim * z_dim;
+		rho_std /= x_dim * y_dim * z_dim;
+		rho_std -= rho_avg * rho_avg;
+		rho_std  = sqrt(rho_std);
+	}
+	if(map_type == mrc){
+		rho_min -= rho_avg;
+		rho_min /= rho_std;
+		rho_max -= rho_avg;
+		rho_max /= rho_std;
+	}
+	cout << "\t-> density range: " << rho_min << " to " << rho_max << std::setprecision(6) << " (average: " << rho_avg << " +/- " << rho_std << ")\n";
 	map_file.close();
 	double file_reading_ms = seconds_since(runtime)*1000.0;
 	cout << "<- Finished reading densities, took " << file_reading_ms << " ms.\n\n";
@@ -431,6 +580,10 @@ inline std::vector<fp_num> read_dsn6(
 				                    dy * (data_point[x_dim]*omdx + data_point[x_dim + 1]*dx)) +
 				          dz   * (omdy * (data_point[xy_stride]*omdx + data_point[xy_stride + 1]*dx) +
 				                    dy * (data_point[x_dim + xy_stride]*omdx + data_point[x_dim + xy_stride + 1]*dx));
+				if(map_type == mrc){
+					density -= rho_avg;
+					density /= rho_std;
+				}
 				if(write_map) grid_file << num2str(density) << "\n";
 			}
 		}
