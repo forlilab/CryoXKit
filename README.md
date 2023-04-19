@@ -18,9 +18,8 @@ Once built to test everything works the following command can be used:
 
 It should produce the grid map file `1d3g_2fofc.map` in the `./example` folder and similar output:
 ```
-Reading DSN6 map file example/1d3g_2fofc.dsn6
-    -> file size: 1728512
-    -> endian swap: 1, Norm: 100
+Reading map file example/1d3g_2fofc.dsn6
+    -> DSN6 endian-swapped, file size: 1728512
     -> x_dim = 115, y_dim = 120, z_dim = 112
     -> a_unit = 90.6, b_unit = 90.6, c_unit = 122.4
     -> alpha = 90, beta = 90, gamma = 120
@@ -32,14 +31,14 @@ Reading DSN6 map file example/1d3g_2fofc.dsn6
 	   0.0110    0.0064    0.0000
 	        0    0.0127   -0.0000
 	        0         0    0.0082
-    -> density coordinate range: (25.0768, 13.5440, -17.7846) A to (54.4678, 69.1212, 40.2769) A
-    -> density range: -2.5810 to 12.6651
-<- Finished reading densities, took 7.4070 ms.
+    -> density coordinate range: (25.077, 13.544, -17.785) A to (54.468, 69.121, 40.277) A
+    -> density range: -2.581 to 12.665 (average: -0.029997 +/- 1.000289)
+<- Finished reading densities, took 6.824000 ms.
 
 Interpolating density data for 40x40x40 grid (spacing: 0.375 A)
     -> grid start:  (34.930, 34.164, 3.003) A
     -> grid size:   (15.000, 15.000, 15.000) A
-<- Finished interpolating and writing grid map, took 9.470 ms.
+<- Finished interpolating and writing grid map, took 8.055 ms.
 
-Done. Overall time was 16.891 ms.
+Done. Overall time was 14.888 ms.
 ```
