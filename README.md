@@ -1,6 +1,6 @@
 # Cryo2Grid
 
-A tool to (currently) read DSN6, BRIX, and MRC/CCP4 crystallography and cryo-EM files and interpolate their density values onto a cartesian grid map as used by AutoDock software.
+A tool to (currently) read DSN6, BRIX, and MRC/CCP4 crystallography and cryo-EM files and interpolate their density values onto a cartesian grid map as used by AutoDock software. The tool can output AD4 grid maps (default) or grid MRC files.
 
 # Build instructions
 
@@ -8,9 +8,9 @@ On most platforms only "make" should be needed. On macOS the compiler in the Mak
 
 # Syntax
 
-Cryo2Grid needs parameters for the density map file, grid map center x, y, z coordinates, grid map x, y, z dimensions, and optionally the grid spacing (default is 0.375 A):
+Cryo2Grid needs parameters for the density map file, grid map center x, y, z coordinates, grid map x, y, z dimensions, and optionally the grid spacing (default is 0.375 A) as well as the type of map to write (0 .. nothing, 1 .. AD4 grid map, 2 .. MRC grid map):
 
-`./cryo2grid <map file> <center x> <center y> <center z> <x dim> <y dim> <z dim> <optional: grid spacing (default: 0.375)>`
+`./cryo2grid mapfile center_x center_y center_z x_dim y_dim z_dim (spacing [0.375]) (write [1 = AD4 map])`
 
 Once built to test everything works the following command can be used:
 
@@ -33,12 +33,12 @@ Reading map file example/1d3g_2fofc.dsn6
 	        0         0    0.0082
     -> density coordinate range: (25.077, 13.544, -17.785) A to (54.468, 69.121, 40.277) A
     -> density range: -2.581 to 12.665 (average: -0.029997 +/- 1.000289)
-<- Finished reading densities, took 6.824000 ms.
+<- Finished reading densities, took 6.419000 ms.
 
 Interpolating density data for 40x40x40 grid (spacing: 0.375 A)
     -> grid start:  (34.930, 34.164, 3.003) A
     -> grid size:   (15.000, 15.000, 15.000) A
-<- Finished interpolating and writing grid map, took 8.055 ms.
+<- Finished interpolating and writing AD4 grid map, took 8.768 ms.
 
-Done. Overall time was 14.888 ms.
+Done. Overall time was 15.202 ms.
 ```

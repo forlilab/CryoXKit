@@ -50,6 +50,7 @@ int main(int argc, const char* argv[])
 	fp_num X_center, Y_center, Z_center;
 	int X_dim, Y_dim, Z_dim;
 	fp_num grid_spacing = 0.375;
+	int write_type = write_ad4map;
 	// Check for command line parameters
 	if(argc>7){ // yes, there are some -- parameter required are map filename, grid center x,y,z, grid x,y,z dimensions, and grid spacing
 		map_file = argv[1];
@@ -63,9 +64,10 @@ int main(int argc, const char* argv[])
 			cout << "ERROR: Please ensure grid dimensions are each greater than 1.\n";
 			exit(1);
 		}
-		if(argc>8) grid_spacing = atoi(argv[8]);
+		if(argc>8) grid_spacing = atof(argv[8]);
+		if(argc>9) write_type = atoi(argv[9]);
 	} else{
-		cout << "Syntax: " << argv[0] << " <map file> <center x> <center y> <center z> <x dim> <y dim> <z dim> <optional: grid spacing (default: " << grid_spacing << ")>\n"; // argv[0] is program name
+		cout << "Syntax: " << argv[0] << " mapfile center_x center_y center_z x_dim y_dim z_dim (spacing [" << grid_spacing << "]) (write [" << write_type << " = AD4 map])\n"; // argv[0] is program name
 		exit(1);
 	}
 	
@@ -79,9 +81,8 @@ int main(int argc, const char* argv[])
 	                                       Y_dim,
 	                                       Z_dim,
 	                                       grid_spacing,
-	                                       true
+	                                       write_type
 	                                      );
-	
 	return 0;
 }
 

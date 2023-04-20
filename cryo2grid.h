@@ -14,6 +14,20 @@
 
 #define DSN6_BLOCKSIZE 512
 
+enum map_types_supported{
+	automatic = 0,
+	dsn6      = 1,
+	dsn6_swap = 2,
+	brix      = 3,
+	mrc       = 4
+};
+
+enum grid_map_write_modes{
+	write_nothing  = 0,
+	write_ad4map   = 1,
+	write_grid_mrc = 2
+};
+
 #include <stdlib.h>
 #include <iostream>
 #include <vector>
@@ -36,17 +50,8 @@ using namespace std;
 #include <sys/time.h>
 #endif
 
-enum map_types_supported{
-	automatic = 0,
-	dsn6      = 1,
-	dsn6_swap = 2,
-	brix      = 3,
-	mrc       = 4
-};
-
-//                              origin       extent     grid      cell axes    angles     start      min, max, avg, std
-//                                                                                     (if, origin=0)
-const int mrc_offsets[22] = {196, 200, 204, 0, 4, 8, 28, 32, 36, 40, 44, 48, 52, 56, 60, 16, 20, 24, 76, 80, 84, 216};
+//                              start     extent     grid      cell axes    angles       origin     min, max, avg, std
+const int mrc_offsets[22] = {16, 20, 24, 0, 4, 8, 28, 32, 36, 40, 44, 48, 52, 56, 60, 196, 200, 204, 76, 80, 84, 216};
 
 template<typename T>
 inline double seconds_since(T& time_start)
@@ -112,8 +117,9 @@ static unsigned short static_one = 1;
 
 inline std::string num2str(fp_num num)
 {
-	long l = (long)fastfloor(num);
-	return to_string(l) + "." + to_string((long)fastfloor((num-l)*1000+0.5));
+	unsigned int l = fabs(num);
+	unsigned int decimals = (fabs(num)-l)*1000 + 0.5;
+	return (num<0?"-":"") + to_string(l) + "." + (decimals<100?"0":"") + (decimals<10?"0":"") + to_string(decimals);
 }
 
 inline char* find_block(char* &brix_string)
@@ -212,8 +218,88 @@ inline int determine_map_type(char* &header)
 	return map_type;
 }
 
+inline void write_grid_map_mrc(
+                               fp_num*       grid_map,
+                               std::string  &filename,
+                               fp_num        map_x_center,
+                               fp_num        map_y_center,
+                               fp_num        map_z_center,
+                               unsigned int  map_x_dim,
+                               unsigned int  map_y_dim,
+                               unsigned int  map_z_dim,
+                               fp_num        grid_spacing,
+                               bool          new_extension = true
+                              )
+{
+	if(new_extension){
+		std::size_t ext = filename.find_last_of(".");
+		filename = filename.substr(0, ext) + ".grid.mrc";
+	}
+	std::ofstream map_file(filename, std::ifstream::binary);
+	if(map_file.fail()){
+		cout << "Error: Can't open grid map output file " << filename << ".\n";
+		exit(1);
+	}
+	struct mrc_header{
+		unsigned int nx;
+		unsigned int ny;
+		unsigned int nz;
+		unsigned int mode       = 2;
+		unsigned int x_start    = 0;
+		unsigned int y_start    = 0;
+		unsigned int z_start    = 0;
+		unsigned int mx;
+		unsigned int my;
+		unsigned int mz;
+		float        cell_a;
+		float        cell_b;
+		float        cell_c;
+		float        alpha      = 90.0f;
+		float        beta       = 90.0f;
+		float        gamma      = 90.0f;
+		unsigned int map_x      = 1;
+		unsigned int map_y      = 2;
+		unsigned int map_z      = 3;
+		float        val_min    = -1.0f;
+		float        val_max    = 1.0f;
+		float        val_avg    = 0;
+		unsigned int spacegroup = 1;
+		unsigned int ext_header = 0;
+		char extra[100];
+		float        x_origin;
+		float        y_origin;
+		float        z_origin;
+		char map_str[3]         = {'M', 'A', 'P'};
+		unsigned int mach_str;
+		float        val_std    = 1.0f;
+		unsigned int nlabel     = 1;
+		char labels[800];
+	} header;
+	memset(header.extra, 0,100);
+	memset(header.labels,0,800);
+	strncpy(header.labels, "Cryo2Grid MRC grid map", 23);
+	header.nx       = map_x_dim + 1;
+	header.mx       = map_x_dim + 1;
+	header.ny       = map_y_dim + 1;
+	header.my       = map_y_dim + 1;
+	header.nz       = map_z_dim + 1;
+	header.mz       = map_z_dim + 1;
+	header.cell_a   = (map_x_dim + 1) * grid_spacing;
+	header.cell_b   = (map_y_dim + 1) * grid_spacing;
+	header.cell_c   = (map_z_dim + 1) * grid_spacing;
+	header.x_origin = map_x_center - map_x_dim * grid_spacing * 0.5;
+	header.y_origin = map_y_center - map_y_dim * grid_spacing * 0.5;
+	header.z_origin = map_z_center - map_z_dim * grid_spacing * 0.5;
+	header.mach_str = HOST_LITTLE_ENDIAN ? 17476 : 4369;
+	
+	map_file.write(reinterpret_cast<char*>(&header),sizeof(header));
+	map_file.write(reinterpret_cast<char*>(grid_map), (map_x_dim + 1) * (map_y_dim + 1) * (map_z_dim + 1) * sizeof(float));
+	
+	map_file.close();
+}
+
 inline std::vector<fp_num> read_map(
-                                    std::string   filename,
+                                    std::string  &filename,
                                     int           map_type,
                                     fp_num        map_x_center,
                                     fp_num        map_y_center,
@@ -222,7 +308,7 @@ inline std::vector<fp_num> read_map(
                                     unsigned int  map_y_dim,
                                     unsigned int  map_z_dim,
                                     fp_num        grid_spacing,
-                                    bool          write_map = false
+                                    int           write_mode = write_nothing
                                    )
 {
 	timeval runtime;
@@ -262,7 +348,7 @@ inline std::vector<fp_num> read_map(
 		case mrc:       cout << "\t-> MRC";
 		                header_end  = 1024;
 		                if(*((char*)&norm) != (*header || *(header+1))) endian_swap = true;
-		                header_end += *(reinterpret_cast<int*>(read_32bit(header+92)));
+		                header_end += *(reinterpret_cast<int*>(read_32bit(header+92))); // add bytes of the extended header
 		                mrc_mode    = *(reinterpret_cast<int*>(read_32bit(header+12)));
 		                break;
 		default:
@@ -301,7 +387,7 @@ inline std::vector<fp_num> read_map(
 		size_expected = xy_file_stride * z_dim + header_end;
 	}
 	if(filesize < size_expected){
-		cout << "\nERROR: Not enough data blocks in provided DSN6 file.\n";
+		cout << "\nERROR: Not enough data blocks in provided map file.\n";
 		exit(5);
 	}
 	next_entry("grid");
@@ -328,16 +414,18 @@ inline std::vector<fp_num> read_map(
 	}
 	fp_num rho_min, rho_max;
 	double rho_avg, rho_std;
-	bool calc_rho_stat = true;
+	bool calc_rho_stat    = true;
+	fp_num x_origin       = 0;
+	fp_num y_origin       = 0;
+	fp_num z_origin       = 0;
 	if(map_type == mrc){ // http://situs.biomachina.org/fmap.pdf
-		if((x_start==0) && (y_start==0) && (z_start==0)){
-			x_start = read_entry(header, float);
-			y_start = read_entry(header, float);
-			z_start = read_entry(header, float);
-		} else{
-			x_start *= inv_x_step / a_unit;
-			y_start *= inv_y_step / b_unit;
-			z_start *= inv_z_step / c_unit;
+		x_origin = read_entry(header, float);
+		y_origin = read_entry(header, float);
+		z_origin = read_entry(header, float);
+		if(!((x_origin==0) && (y_origin==0) && (z_origin==0))){ // we tried reading origin fields first and if they are empty, fall back on n*start
+			x_start = 0;
+			y_start = 0;
+			z_start = 0;
 		}
 		rho_min = read_entry(header, float);
 		rho_max = read_entry(header, float);
@@ -412,6 +500,12 @@ inline std::vector<fp_num> read_map(
 	fp_num density_z_end   = (z_start + z_dim - 1)  * z_step;
 	f2c(density_x_start, density_y_start, density_z_start);
 	f2c(density_x_end, density_y_end, density_z_end);
+	density_x_start       += x_origin;
+	density_x_end         += x_origin;
+	density_y_start       += y_origin;
+	density_y_end         += y_origin;
+	density_z_start       += z_origin;
+	density_z_end         += z_origin;
 	cout.precision(3);
 	cout << "\t-> density coordinate range: (" << density_x_start << ", " << density_y_start << ", " << density_z_start << ") A to (" << density_x_end << ", " << density_y_end << ", " << density_z_end << ") A\n";
 	fp_num map_x_start  = map_x_center - map_x_dim * grid_spacing * 0.5;
@@ -509,14 +603,16 @@ inline std::vector<fp_num> read_map(
 	
 	fp_num grid_a, grid_b, grid_c, density;
 	std::vector<fp_num> grid_map;
-	grid_map.resize((map_x_dim + 1) * (map_y_dim + 1) * (map_z_dim + 1));
+	unsigned int g1 = map_x_dim + 1;
+	unsigned int g2 = g1 * (map_y_dim + 1);
+	grid_map.resize(g2 * (map_z_dim + 1));
 	fp_num* density_data = densities.data();
 	fp_num* data_point;
 #ifdef MGLTOOLS_MATH_COMPARISON
 	fp_num ga, gb, gc;
 #endif
 	std::ofstream grid_file;
-	if(write_map){
+	if(write_mode == write_ad4map){
 		std::size_t ext = filename.find_last_of(".");
 		std::string map_name = filename.substr(0, ext) + ".map";
 		grid_file.open(map_name);
@@ -536,9 +632,9 @@ inline std::vector<fp_num> read_map(
 	for(unsigned int z = 0; z <= map_z_dim; z++){
 		for(unsigned int y = 0; y <= map_y_dim; y++){
 			for(unsigned int x = 0; x <= map_x_dim; x++){
-				grid_a = map_x_start + x * grid_spacing;
-				grid_b = map_y_start + y * grid_spacing;
-				grid_c = map_z_start + z * grid_spacing;
+				grid_a = map_x_start + x * grid_spacing - x_origin;
+				grid_b = map_y_start + y * grid_spacing - y_origin;
+				grid_c = map_z_start + z * grid_spacing - z_origin;
 				c2f(grid_a, grid_b, grid_c);
 				grid_a *= inv_x_step;
 				grid_b *= inv_y_step;
@@ -553,9 +649,9 @@ inline std::vector<fp_num> read_map(
 				cout << grid_a << ":" << ga << " ; " << grid_b << ":" << gb << " ; " << grid_c << ":" << gc << "\n";
 #endif
 				// Getting coordinates
-				fp_num x_low  = fastfloor(grid_a);
-				fp_num y_low  = fastfloor(grid_b);
-				fp_num z_low  = fastfloor(grid_c);
+				unsigned int x_low  = grid_a; // conversion to integer always truncates float
+				unsigned int y_low  = grid_b; // <- this looks dangerous but we made sure that grid_a,b,c can only be >= 0
+				unsigned int z_low  = grid_c;
 				
 				data_point = density_data + (unsigned long)xyz_idx(x_low,y_low,z_low);
 				
@@ -585,14 +681,30 @@ inline std::vector<fp_num> read_map(
 					density -= rho_avg;
 					density /= rho_std;
 				}
-				if(write_map) grid_file << num2str(density) << "\n";
+				grid_map[x + y*g1 + z*g2] = density;
+				if(write_mode == write_ad4map) grid_file << num2str(density) << "\n";
 			}
 		}
 	}
 	cout << "<- Finished interpolating ";
-	if(write_map){
-		grid_file.close();
-		cout << "and writing ";
+	switch(write_mode){
+		case write_ad4map:   grid_file.close();
+		                     cout << "and writing AD4 ";
+		                     break;
+		case write_grid_mrc: write_grid_map_mrc(
+		                                        grid_map.data(),
+		                                        filename,
+		                                        map_x_center,
+		                                        map_y_center,
+		                                        map_z_center,
+		                                        map_x_dim,
+		                                        map_y_dim,
+		                                        map_z_dim,
+		                                        grid_spacing,
+		                                        true
+		                                       );
+		                     cout << "and writing MRC ";
+		default:             break;
 	}
 	cout << "grid map, took " << seconds_since(runtime)*1000.0 - file_reading_ms << " ms.\n\n";
 	cout << "Done. Overall time was " << seconds_since(runtime)*1000.0 << " ms.\n";
