@@ -28,6 +28,8 @@ enum grid_map_write_modes{
 	write_grid_mrc = 2
 };
 
+#define MAPEPS 1e-4
+
 #include <stdlib.h>
 #include <iostream>
 #include <vector>
@@ -496,8 +498,8 @@ inline std::vector<fp_num> read_map(
 	fp_num density_y_start = y_start * y_step;
 	fp_num density_z_start = z_start * z_step;
 	fp_num density_x_end   = (x_start + x_dim - 1) * x_step;
-	fp_num density_y_end   = (y_start + y_dim - 1)  * y_step;
-	fp_num density_z_end   = (z_start + z_dim - 1)  * z_step;
+	fp_num density_y_end   = (y_start + y_dim - 1) * y_step;
+	fp_num density_z_end   = (z_start + z_dim - 1) * z_step;
 	f2c(density_x_start, density_y_start, density_z_start);
 	f2c(density_x_end, density_y_end, density_z_end);
 	density_x_start       += x_origin;
@@ -506,19 +508,20 @@ inline std::vector<fp_num> read_map(
 	density_y_end         += y_origin;
 	density_z_start       += z_origin;
 	density_z_end         += z_origin;
-	cout.precision(3);
+	cout.precision(4);
 	cout << "\t-> density coordinate range: (" << density_x_start << ", " << density_y_start << ", " << density_z_start << ") A to (" << density_x_end << ", " << density_y_end << ", " << density_z_end << ") A\n";
 	fp_num map_x_start  = map_x_center - map_x_dim * grid_spacing * 0.5;
 	fp_num map_y_start  = map_y_center - map_y_dim * grid_spacing * 0.5;
 	fp_num map_z_start  = map_z_center - map_z_dim * grid_spacing * 0.5;
-	fp_num map_x_end    = map_x_start + map_x_dim * grid_spacing;
-	fp_num map_y_end    = map_y_start + map_y_dim * grid_spacing;
-	fp_num map_z_end    = map_z_start + map_z_dim * grid_spacing;
+	fp_num map_x_end    = map_x_start  + map_x_dim * grid_spacing;
+	fp_num map_y_end    = map_y_start  + map_y_dim * grid_spacing;
+	fp_num map_z_end    = map_z_start  + map_z_dim * grid_spacing;
 	// test if there is data for our grid box
-	if((map_x_start < density_x_start) || (map_y_start < density_y_start) || (map_z_start < density_z_start) ||
-	   (map_x_end   > density_x_end)   || (map_y_end   > density_y_end)   || (map_z_end   > density_z_end))
+	if(((map_x_start - density_x_start) < -MAPEPS) || ((map_y_start - density_y_start) < -MAPEPS) || ((map_z_start - density_z_start) < -MAPEPS) ||
+	   ((map_x_end   - density_x_end)   >  MAPEPS) || ((map_y_end   - density_y_end)   >  MAPEPS) || ((map_z_end   - density_z_end)   >  MAPEPS))
 	{
 		cout << "\nERROR: The specified grid box is (partially) outside of the file's density data.\n";
+		cout << "       Grid coordinate range: (" << map_x_start << ", " << map_y_start << ", " << map_z_start << ") A to (" << map_x_end << ", " << map_y_end << ", " << map_z_end << ") A\n";
 		exit(6);
 	}
 	densities.resize(xy_stride*z_dim);
