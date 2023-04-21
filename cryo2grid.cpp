@@ -9,30 +9,7 @@
 /*           Forli Lab @ Scripps Research   */
 /********************************************/
 
-#define USE_SINGLE_PRECISION
-
-#ifdef USE_SINGLE_PRECISION
-typedef float fp_num;
-#define twoTo23 8388608.0f
-inline fp_num fastfloor(fp_num f)
-{
-	fp_num c = (f >= 0.0 ? -twoTo23 : twoTo23);
-	fp_num result = (f - c) + c;
-	if(f < result) result -= 1.0;
-	return result;
-}
-#else
-typedef double fp_num;
-#define twoTo52 4503599627370496.0
-inline fp_num fastfloor(fp_num f)
-{
-	fp_num c = (f >= 0.0 ? -twoTo52 : twoTo52);
-	fp_num result = (f - c) + c;
-	if(f < result) result -= 1.0;
-	return result;
-}
-#endif
-
+#include "config.h"
 #include "cryo2grid.h"
 
 #include <stdlib.h>

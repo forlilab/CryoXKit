@@ -40,42 +40,10 @@ enum grid_map_write_modes{
 #include <atomic>
 #include <algorithm>
 
-#ifdef PARALLELIZE
-#include <omp.h>
-#endif
-
 using namespace std;
-
-#include <time.h>
-#ifndef _WIN32
-// Time measurement
-#include <sys/time.h>
-#endif
 
 //                              start     extent     grid      cell axes    angles       origin     min, max, avg, std
 const int mrc_offsets[22] = {16, 20, 24, 0, 4, 8, 28, 32, 36, 40, 44, 48, 52, 56, 60, 196, 200, 204, 76, 80, 84, 216};
-
-template<typename T>
-inline double seconds_since(T& time_start)
-{
-#ifndef _WIN32
-	timeval time_end;
-	gettimeofday(&time_end,NULL);
-        double num_sec     = time_end.tv_sec  - time_start.tv_sec;
-        double num_usec    = time_end.tv_usec - time_start.tv_usec;
-        return (num_sec + (num_usec/1000000));
-#else
-	return 0.0;
-#endif
-}
-
-template<typename T>
-inline void start_timer(T& time_start)
-{
-#ifndef _WIN32
-	gettimeofday(&time_start,NULL);
-#endif
-}
 
 static unsigned short static_one = 1;
 #define HOST_LITTLE_ENDIAN (*(unsigned char*)&static_one == 1)
@@ -86,7 +54,6 @@ static unsigned short static_one = 1;
 #define short_swap(byte_data) (HOST_LITTLE_ENDIAN ? (short int)((*((unsigned char*)byte_data)<<8) | *((unsigned char*)byte_data+1)) : (short int)(*((unsigned char*)byte_data) | (*((unsigned char*)byte_data+1)<<8)))
 #define read_short(byte_data) (endian_swap ? short_swap(byte_data) : *(reinterpret_cast<short int*>(byte_data)))
 
-#define PI 3.14159265358979323846
 #define xyz_idx(x,y,z) ((x) + (y)*x_dim + (z)*xy_stride)
 
 // McKie & McKie: Essentials of Crystallography, Blackwell Scientific, Oxford (1986)
