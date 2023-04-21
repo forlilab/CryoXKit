@@ -271,7 +271,7 @@ inline void write_grid_map_mrc(
 		float        x_origin;
 		float        y_origin;
 		float        z_origin;
-		char map_str[3]         = {'M', 'A', 'P'};
+		char map_str[4]         = {'M', 'A', 'P', ' '};
 		unsigned int mach_str;
 		float        val_std    = 1.0f;
 		unsigned int nlabel     = 1;
