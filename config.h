@@ -1,20 +1,13 @@
-/**************************************************************/
-/* Parts of this code are from the FIGSiM project distributed */
-/* under the University of Illinois/NCSA Open Source License. */
-/* See LICENSE_UIUC file for details.                         */
-/*                                                            */
-/* Copyright (c) 2016 FIGSiM developers                       */
-/*                                                            */
-/* As part of AD-NG this file is distributed under the        */
-/* GNU LPGL-2.1-or-later Open Source License.                 */
-/* See LICENSE file in top directory for details.             */
-/*                                                            */
-/* Copyright (c) 2020 ADsandbox developers:                   */
-/*           Dr. Andreas F. Tillack                           */
-/*           Dr. Diogo M. Santos-Martins                      */
-/*           Dr. Stefano Forli                                */
-/*           Forli Lab @ Scripps Research                     */
-/**************************************************************/
+/********************************************/
+/* This file is distributed under the GNU   */
+/* LPGL-2.1-or-later Open Source License.   */
+/* See LICENSE file for details.            */
+/*                                          */
+/* Copyright (c) 2023 Andreas F. Tillack    */
+/*                    Althea A. Hansel      */
+/*                    Matthew Holcomb       */
+/*           Forli Lab @ Scripps Research   */
+/********************************************/
 
 
 #ifndef INCLUDED_CONFIG
