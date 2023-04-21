@@ -230,6 +230,8 @@ inline void write_grid_map_mrc(
                                unsigned int  map_y_dim,
                                unsigned int  map_z_dim,
                                fp_num        grid_spacing,
+                               fp_num        rho_min       = -1,
+                               fp_num        rho_max       =  1,
                                bool          new_extension = true
                               )
 {
@@ -292,6 +294,10 @@ inline void write_grid_map_mrc(
 	header.x_origin = map_x_center - map_x_dim * grid_spacing * 0.5;
 	header.y_origin = map_y_center - map_y_dim * grid_spacing * 0.5;
 	header.z_origin = map_z_center - map_z_dim * grid_spacing * 0.5;
+	if((rho_min <= rho_max) && (std::min(rho_min, rho_max) >= 0)){
+		header.val_min = rho_min;
+		header.val_max = rho_max;
+	}
 	header.mach_str = HOST_LITTLE_ENDIAN ? 17476 : 4369;
 	
 	map_file.write(reinterpret_cast<char*>(&header),sizeof(header));
@@ -324,21 +330,22 @@ inline std::vector<fp_num> read_map(
 		cout << "\nERROR: Can't open map file " << filename << ".\n";
 		exit(2);
 	}
-	std::streamoff filesize = map_file.tellg();
-	map_file.seekg(0, std::ios::end);
-	filesize = map_file.tellg() - filesize;
-	map_file.seekg(0, std::ios::beg);
+	std::streamoff filesize  = map_file.tellg();
+	                           map_file.seekg(0, std::ios::end);
+	filesize                 = map_file.tellg() - filesize;
+	                           map_file.seekg(0, std::ios::beg);
 	char map_header[DSN6_BLOCKSIZE];
 	if(!map_file.read(map_header, DSN6_BLOCKSIZE)){
 		cout << "\nERROR: Can't reader header.\n";
 		exit(3);
 	}
 	char* header = map_header;
-	if(map_type == automatic) map_type = determine_map_type(header);
-	unsigned int norm       = 1;
-	unsigned int header_end = DSN6_BLOCKSIZE;
-	bool endian_swap        = false;
-	int mrc_mode            = -1;
+	if(map_type == automatic)
+		map_type         = determine_map_type(header);
+	unsigned int norm        = 1;
+	unsigned int header_end  = DSN6_BLOCKSIZE;
+	bool endian_swap         = false;
+	int mrc_mode             = -1;
 	int tempval;
 	switch(map_type){
 		case dsn6_swap: endian_swap = true;
@@ -359,103 +366,105 @@ inline std::vector<fp_num> read_map(
 	}
 	cout << (endian_swap ?" endian-swapped":"") << ", file size: " << filesize << "\n";
 	
-	unsigned int data_count = 0;
+	unsigned int data_count  = 0;
 	next_entry("origin");
-	fp_num x_start       = read_entry(header, int);
-	fp_num y_start       = read_entry(header, int);
-	fp_num z_start       = read_entry(header, int);
+	fp_num x_start           = read_entry(header, int);
+	fp_num y_start           = read_entry(header, int);
+	fp_num z_start           = read_entry(header, int);
 	next_entry("extent");
-	unsigned int x_dim   = read_entry(header, int);
-	unsigned int y_dim   = read_entry(header, int);
-	unsigned int z_dim   = read_entry(header, int);
-	unsigned long xy_stride      = x_dim * y_dim;
-	unsigned int x_file_stride   = (((x_dim&7)>0) + (x_dim>>3)) << 6;
-	unsigned int xy_file_stride  = x_file_stride * (((y_dim&7)>0) + (y_dim>>3)) << 3;
-	std::streamoff size_expected = xy_file_stride * (((z_dim&7)>0) + (z_dim>>3)) + header_end;
+	unsigned int x_dim       = read_entry(header, int);
+	unsigned int y_dim       = read_entry(header, int);
+	unsigned int z_dim       = read_entry(header, int);
+	unsigned long xy_stride  = x_dim * y_dim;
+	unsigned int f_x_stride  = (((x_dim&7)>0) + (x_dim>>3)) << 6;
+	unsigned int f_xy_stride = f_x_stride * (((y_dim&7)>0) + (y_dim>>3)) << 3;
+	std::streamoff expected  = f_xy_stride * (((z_dim&7)>0) + (z_dim>>3)) + header_end;
 	if(mrc_mode>=0){ // reading mrc file
-		x_file_stride  = x_dim;
-		xy_file_stride = xy_stride;
+		f_x_stride       = x_dim;
+		f_xy_stride      = xy_stride;
 		switch(mrc_mode){
-			case 0: break;
-			case 1: x_file_stride <<= 1;
-			        xy_file_stride <<= 1;
-			        break;
-			case 2: x_file_stride <<= 2;
-			        xy_file_stride <<= 2;
-			        break;
+			case 0:  break;
+			case 1:  f_x_stride  <<= 1;
+			         f_xy_stride <<= 1;
+			         break;
+			case 2:  f_x_stride  <<= 2;
+			         f_xy_stride <<= 2;
+			         break;
 			default: cout << "ERROR: Only mode 0, 1, 2 are supported for CCP4/MRC map files.\n";
 			         exit(33);
 		}
-		size_expected = xy_file_stride * z_dim + header_end;
+		expected         = f_xy_stride * z_dim + header_end;
 	}
-	if(filesize < size_expected){
-		cout << "\nERROR: Not enough data blocks in provided map file.\n";
+	if(filesize < expected){
+		cout << "\nERROR: Map file size is too small based on header information (expected: " << expected << " Bytes).\n";
 		exit(5);
 	}
 	next_entry("grid");
-	fp_num inv_x_step    = read_entry(header, int);
-	fp_num inv_y_step    = read_entry(header, int);
-	fp_num inv_z_step    = read_entry(header, int);
-	fp_num x_step        = 1.0 / inv_x_step;
-	fp_num y_step        = 1.0 / inv_y_step;
-	fp_num z_step        = 1.0 / inv_z_step;
+	fp_num inv_x_step        = read_entry(header, int);
+	fp_num inv_y_step        = read_entry(header, int);
+	fp_num inv_z_step        = read_entry(header, int);
+	fp_num x_step            = 1.0 / inv_x_step;
+	fp_num y_step            = 1.0 / inv_y_step;
+	fp_num z_step            = 1.0 / inv_z_step;
 	next_entry("cell");
-	fp_num a_unit        = read_entry(header, float);
-	fp_num b_unit        = read_entry(header, float);
-	fp_num c_unit        = read_entry(header, float);
-	fp_num alpha         = read_entry(header, float);
-	fp_num beta          = read_entry(header, float);
-	fp_num gamma         = read_entry(header, float);
-	fp_num rho_scale     = 1;
-	fp_num offset        = 0;
+	fp_num a_unit            = read_entry(header, float);
+	fp_num b_unit            = read_entry(header, float);
+	fp_num c_unit            = read_entry(header, float);
+	fp_num alpha             = read_entry(header, float);
+	fp_num beta              = read_entry(header, float);
+	fp_num gamma             = read_entry(header, float);
+	fp_num rho_scale         = 1;
+	fp_num offset            = 0;
 	if(map_type<4){
 		next_entry("prod");
-		rho_scale     = norm / read_entry(header, float);
+		rho_scale        = norm / read_entry(header, float);
 		next_entry("plus");
-		offset        = read_entry(header, float);
+		offset           = read_entry(header, float);
 	}
 	fp_num rho_min, rho_max;
 	double rho_avg, rho_std;
-	bool calc_rho_stat    = true;
-	fp_num x_origin       = 0;
-	fp_num y_origin       = 0;
-	fp_num z_origin       = 0;
+	bool calc_rho_stat       = true;
+	fp_num x_origin          = 0;
+	fp_num y_origin          = 0;
+	fp_num z_origin          = 0;
 	if(map_type == mrc){ // http://situs.biomachina.org/fmap.pdf
-		x_origin = read_entry(header, float);
-		y_origin = read_entry(header, float);
-		z_origin = read_entry(header, float);
+		x_origin         = read_entry(header, float);
+		y_origin         = read_entry(header, float);
+		z_origin         = read_entry(header, float);
 		if(!((x_origin==0) && (y_origin==0) && (z_origin==0))){ // we tried reading origin fields first and if they are empty, fall back on n*start
-			x_start = 0;
-			y_start = 0;
-			z_start = 0;
+			x_start  = 0;
+			y_start  = 0;
+			z_start  = 0;
 		}
-		rho_min = read_entry(header, float);
-		rho_max = read_entry(header, float);
-		rho_avg = read_entry(header, float);
-		rho_std = read_entry(header, float);
-		calc_rho_stat = !((rho_min < rho_max) && (rho_min <= rho_avg) && (rho_avg <= rho_max) && (rho_std > 0));
+		rho_min          = read_entry(header, float);
+		rho_max          = read_entry(header, float);
+		rho_avg          = read_entry(header, float);
+		rho_std          = read_entry(header, float);
+		// follows note 5 in documentation:
+		// https://www.ccpem.ac.uk/mrc_format/mrc2014.php#note5
+		calc_rho_stat    = !((rho_min <= rho_max) && (rho_avg >= std::min(rho_min, rho_max)) && (rho_std > 0));
 	}
 	
 	if(map_type<3){
-		fp_num unit_scale    = 1.0 / read_entry(header, int);
-		a_unit              *= unit_scale;
-		b_unit              *= unit_scale;
-		c_unit              *= unit_scale;
-		alpha               *= unit_scale;
-		beta                *= unit_scale;
-		gamma               *= unit_scale;
+		fp_num scale     = 1.0 / read_entry(header, int);
+		a_unit          *= scale;
+		b_unit          *= scale;
+		c_unit          *= scale;
+		alpha           *= scale;
+		beta            *= scale;
+		gamma           *= scale;
 	}
 	cout << "\t-> x_dim = " << x_dim << ", y_dim = " << y_dim << ", z_dim = " << z_dim << "\n";
 	cout << "\t-> a_unit = " << a_unit << ", b_unit = " << b_unit << ", c_unit = " << c_unit << "\n";
 	cout << "\t-> alpha = " << alpha << ", beta = " << beta << ", gamma = " << gamma << "\n";
 	
-	alpha               *= PI / 180.0;
-	beta                *= PI / 180.0;
-	gamma               *= PI / 180.0;
+	alpha                   *= PI / 180.0;
+	beta                    *= PI / 180.0;
+	gamma                   *= PI / 180.0;
 	
-	fp_num inv_a_unit    = 1/a_unit;
-	fp_num inv_b_unit    = 1/b_unit;
-	fp_num inv_c_unit    = 1/c_unit;
+	fp_num inv_a_unit        = 1/a_unit;
+	fp_num inv_b_unit        = 1/b_unit;
+	fp_num inv_c_unit        = 1/c_unit;
 	// r_x = f_x*a + f_y*b*cos(gamma) + f_z*c*cos(beta)
 	// r_y =         f_y*b*sin(gamma) + f_z*c*n
 	// r_z =                            f_z*c*sqrt(sin^2(beta)-n^2)
@@ -535,12 +544,12 @@ inline std::vector<fp_num> read_map(
 	}
 	
 	map_file.seekg(header_end);
-	char* data_block     = new char[xy_file_stride];
+	char* data_block     = new char[f_xy_stride];
 	if(map_type < 4){ // DSN6 and BRIX
 		unsigned z_block, y_block, x_block, data_offset;
 		for(unsigned int z = 0; z < z_dim; z += 8){ // z slow
 			z_block = std::min(z_dim - z, 8u);
-			map_file.read(data_block, xy_file_stride);
+			map_file.read(data_block, f_xy_stride);
 			data_offset = 0;
 			for(unsigned int y = 0; y < y_dim; y += 8){ // y medium
 				y_block = std::min(y_dim - y, 8u);
@@ -564,7 +573,7 @@ inline std::vector<fp_num> read_map(
 		}
 	} else{
 		for(unsigned int z = 0; z < z_dim; z++){ // z slow
-			map_file.read(data_block, xy_file_stride);
+			map_file.read(data_block, f_xy_stride);
 			data_count = 0;
 			for(unsigned int y = 0; y < y_dim; y++){ // y medium
 				for(unsigned int x = 0; x < x_dim; x++){ // x fast
@@ -593,13 +602,14 @@ inline std::vector<fp_num> read_map(
 		rho_max -= rho_avg;
 		rho_max /= rho_std;
 	}
+	cout.precision(3);
 	cout << "\t-> density range: " << rho_min << " to " << rho_max << std::setprecision(6) << " (average: " << rho_avg << " +/- " << rho_std << ")\n";
 	map_file.close();
 	double file_reading_ms = seconds_since(runtime)*1000.0;
-	cout << "<- Finished reading densities, took " << file_reading_ms << " ms.\n\n";
-	
 	cout.precision(3);
 	cout.setf(ios::fixed, ios::floatfield);
+	cout << "<- Finished reading densities, took " << file_reading_ms << " ms.\n\n";
+	
 	cout << "Interpolating density data for " << map_x_dim << "x" << map_y_dim << "x" << map_z_dim << " grid (spacing: " << grid_spacing << " A)\n";
 	cout << "\t-> grid start:  (" << map_x_start << ", " << map_y_start << ", " << map_z_start << ") A\n";
 	cout << "\t-> grid size:   (" << map_x_dim * grid_spacing << ", " << map_y_dim * grid_spacing << ", " << map_z_dim * grid_spacing << ") A\n";
@@ -632,6 +642,8 @@ inline std::vector<fp_num> read_map(
 		grid_file << "NELEMENTS " << map_x_dim << " " << map_y_dim << " " << map_z_dim << "\n";
 		grid_file << "CENTER " << map_x_center << " " << map_y_center << " " << map_z_center << "\n";
 	}
+	rho_min = 0;
+	rho_max = 0;
 	for(unsigned int z = 0; z <= map_z_dim; z++){
 		for(unsigned int y = 0; y <= map_y_dim; y++){
 			for(unsigned int x = 0; x <= map_x_dim; x++){
@@ -685,6 +697,8 @@ inline std::vector<fp_num> read_map(
 					density /= rho_std;
 				}
 				grid_map[x + y*g1 + z*g2] = density;
+				rho_min = std::min(density, rho_min);
+				rho_max = std::max(density, rho_max);
 				if(write_mode == write_ad4map) grid_file << num2str(density) << "\n";
 			}
 		}
@@ -704,6 +718,8 @@ inline std::vector<fp_num> read_map(
 		                                        map_y_dim,
 		                                        map_z_dim,
 		                                        grid_spacing,
+		                                        rho_min,
+		                                        rho_max,
 		                                        true
 		                                       );
 		                     cout << "and writing MRC ";
