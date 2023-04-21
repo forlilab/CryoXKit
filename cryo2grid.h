@@ -251,6 +251,13 @@ inline void write_grid_map_mrc(
 		char labels[800];
 	} header;
 	memset(header.extra, 0,100);
+	if(HOST_LITTLE_ENDIAN){
+		header.extra[12] = 0xAD;
+		header.extra[13] = 0x4E;
+	} else{
+		header.extra[14] = 0x4E;
+		header.extra[15] = 0xAD;
+	}
 	memset(header.labels,0,800);
 	strncpy(header.labels, "Cryo2Grid MRC grid map", 23);
 	header.nx       = map_x_dim + 1;
