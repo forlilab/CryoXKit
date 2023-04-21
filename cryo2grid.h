@@ -32,6 +32,8 @@ enum grid_map_write_modes{
 #define MAPEPS 1e-4
 
 #include <stdlib.h>
+#include <math.h>
+#include <iomanip>
 #include <iostream>
 #include <vector>
 #include <fstream>
@@ -153,6 +155,7 @@ inline bool brix_entry(char* &brix_string, const char* name, bool report_error =
 		        result = read_short(data);                                \
 		        data_count+=2;                                            \
 		        break;                                                    \
+		default:                                                          \
 		case 2: /* 32-bit float */                                        \
 		        result = *(reinterpret_cast<float*>(read_32bit(data)));   \
 		        data_count+=4;                                            \
