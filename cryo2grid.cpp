@@ -32,6 +32,7 @@ int main(int argc, const char* argv[])
 	int X_dim, Y_dim, Z_dim;
 	fp_num grid_spacing = 0.375;
 	int write_type = write_grid_ad4;
+	int mod_type   = no_modifier;
 	// Check for command line parameters
 	if(argc>7){ // yes, there are some -- parameter required are map filename, grid center x,y,z, grid x,y,z dimensions, and grid spacing
 		map_file = argv[1];
@@ -47,8 +48,9 @@ int main(int argc, const char* argv[])
 		}
 		if(argc>8) grid_spacing = atof(argv[8]);
 		if(argc>9) write_type = atoi(argv[9]);
+		if(argc>10) mod_type = atoi(argv[10]);
 	} else{
-		cout << "Syntax: " << argv[0] << " mapfile center_x center_y center_z x_dim y_dim z_dim (spacing [" << grid_spacing << "]) (write [" << write_type << " = AD4 map])\n"; // argv[0] is program name
+		cout << "Syntax: " << argv[0] << " mapfile center_x center_y center_z x_dim y_dim z_dim (spacing [" << grid_spacing << "]) (write [" << write_type << " = AD4 map]) (modifier fxn [" << mod_type << " = no modifier])\n"; // argv[0] is program name
 		exit(1);
 	}
 	
@@ -67,7 +69,7 @@ int main(int argc, const char* argv[])
 	const fp_num fxn_params[4] = {5, -3, 2, 0.5};
 	modify_densities(
 	                 density.data(),
-	                 log_modifier,
+	                 mod_type,
 	                 fxn_params
 	                );
 	
