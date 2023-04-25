@@ -23,6 +23,12 @@ enum map_types_supported{
 	mrc       = 4
 };
 
+enum density_modifier_fxns{
+	no_modifier  = 0,
+	exp_modifier = 1,
+	log_modifier = 2
+};
+
 enum grid_map_write_modes{
 	write_nothing  = 0,
 	write_grid_ad4 = 1,
@@ -761,6 +767,62 @@ inline void write_grid(
 		                     cout << "<- Finished writing, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
 		default:             break;
 	}
+}
+
+template<typename T>
+T fast_int_power(T val, unsigned int exponent)
+{
+	T result = 1;
+	while(exponent>1){
+		if(exponent & 1) result *= val;
+		val *= val;
+		exponent >>= 1;
+	}
+	if(exponent & 1) result *= val;
+	return result;
+}
+
+inline void modify_densities(
+                             fp_num*       densities,
+                             const int     mod_fxn    = no_modifier,
+                             const fp_num* fxn_params = NULL
+                            )
+{
+	if(mod_fxn == no_modifier) return;
+	timeval runtime;
+	start_timer(runtime);
+	cout << "Adjusting density values";
+	const unsigned int nr_points = (densities[0] + 1) * (densities[1] + 1) * (densities[2] + 1) + 9;
+	const fp_num dens_max         = densities[8];
+	fp_num rho_min = 0;
+	fp_num rho_max = 0;
+	fp_num density;
+	if(mod_fxn == exp_modifier){
+		cout << " using exponential function modifier\n";
+		const unsigned int exponent = fxn_params[0];
+		unsigned int pre_factor     = fast_int_power(10, exponent+1);
+		for(unsigned i=9; i<nr_points; i++){
+			density = pre_factor * fast_int_power(dens_max - densities[i], exponent);
+			densities[i] = density;
+			rho_min = std::min(density, rho_min);
+			rho_max = std::max(density, rho_max);
+		}
+	} else
+	if(mod_fxn == log_modifier){
+		cout << " using logistics function modifier\n";
+		const fp_num log_max    = fxn_params[1];
+		const fp_num rate       = fxn_params[2];
+		const fp_num exp_shift  = dens_max - (dens_max - densities[7]) * fxn_params[3]; // rho_max - x0*(rho_max - rho_min)
+		for(unsigned i=9; i<nr_points; i++){
+			density = log_max / (1.0 + exp(rate * (exp_shift - densities[i])));
+			densities[i] = density;
+			rho_min = std::min(density, rho_min);
+			rho_max = std::max(density, rho_max);
+		}
+	}
+	densities[7] = rho_min;
+	densities[8] = rho_max;
+	cout << "<- Finished adjusting, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
 }
 
 #endif // INCLUDED_MAP_READER

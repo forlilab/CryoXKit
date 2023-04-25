@@ -64,6 +64,13 @@ int main(int argc, const char* argv[])
 	                                               grid_spacing
 	                                              );
 	
+	const fp_num fxn_params[4] = {5, -3, 2, 0.5};
+	modify_densities(
+	                 density.data(),
+	                 log_modifier,
+	                 fxn_params
+	                );
+	
 	write_grid(density.data(), map_file, write_type);
 	
 	cout << "Done. Overall time was " << seconds_since(runtime)*1000.0 << " ms.\n";
