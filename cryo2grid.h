@@ -373,13 +373,13 @@ inline void write_grid(
 
 inline std::vector<fp_num> read_map_to_grid(
                                             std::string  &filename,
-                                            int           map_type,
-                                            fp_num        map_x_center,
-                                            fp_num        map_y_center,
-                                            fp_num        map_z_center,
+                                                     int  map_type,
                                             unsigned int  map_x_dim,
                                             unsigned int  map_y_dim,
                                             unsigned int  map_z_dim,
+                                            fp_num        map_x_center,
+                                            fp_num        map_y_center,
+                                            fp_num        map_z_center,
                                             fp_num        grid_spacing
                                            )
 {

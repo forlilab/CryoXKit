@@ -55,12 +55,12 @@ int main(int argc, const char* argv[])
 	std::vector<fp_num> density = read_map_to_grid(
 	                                               map_file,
 	                                               automatic,
-	                                               X_center,
-	                                               Y_center,
-	                                               Z_center,
 	                                               X_dim,
 	                                               Y_dim,
 	                                               Z_dim,
+	                                               X_center,
+	                                               Y_center,
+	                                               Z_center,
 	                                               grid_spacing
 	                                              );
 	
