@@ -25,7 +25,7 @@ enum map_types_supported{
 
 enum grid_map_write_modes{
 	write_nothing  = 0,
-	write_ad4map   = 1,
+	write_grid_ad4 = 1,
 	write_grid_mrc = 2
 };
 
@@ -87,12 +87,6 @@ static unsigned short static_one = 1;
 #define c_c2f(r_z)           (r_z*inv_sqrt_factor_c)
 #define c2f(r_x, r_y, r_z) { r_x = a_c2f(r_x, r_y, r_z); r_y = b_c2f(r_y, r_z); r_z = c_c2f(r_z); }
 
-inline std::string num2str(fp_num num)
-{
-	unsigned int l = fabs(num);
-	unsigned int decimals = (fabs(num)-l)*1000 + 0.5;
-	return (num<0?"-":"") + to_string(l) + "." + (decimals<100?"0":"") + (decimals<10?"0":"") + to_string(decimals);
-}
 
 inline char* find_block(char* &brix_string)
 {
@@ -191,25 +185,76 @@ inline int determine_map_type(char* &header)
 	return map_type;
 }
 
-inline void write_grid_map_mrc(
+inline std::string num2str(fp_num num)
+{
+	unsigned int l = fabs(num);
+	unsigned int decimals = (fabs(num)-l)*1000 + 0.5;
+	return (num<0?"-":"") + to_string(l) + "." + (decimals<100?"0":"") + (decimals<10?"0":"") + to_string(decimals);
+}
+
+inline void write_grid_map_ad4(
                                fp_num*       grid_map,
                                std::string  &filename,
-                               fp_num        map_x_center,
-                               fp_num        map_y_center,
-                               fp_num        map_z_center,
                                unsigned int  map_x_dim,
                                unsigned int  map_y_dim,
                                unsigned int  map_z_dim,
+                               fp_num        map_x_center,
+                               fp_num        map_y_center,
+                               fp_num        map_z_center,
+                               fp_num        grid_spacing,
+                               bool          set_extension = true
+                              )
+{
+	if(set_extension){
+		std::size_t ext = filename.find_last_of(".");
+		filename = filename.substr(0, ext) + ".map";
+	}
+	cout << "Writing AD4 grid map file [" << filename << "]\n";
+	std::ofstream grid_file(filename);
+	if(grid_file.fail()){
+		cout << "Error: Can't open grid map output file " << filename << ".\n";
+		exit(1);
+	}
+	grid_file << "GRID_PARAMETER_FILE none\n";
+	grid_file << "GRID_DATA_FILE none\n";
+	grid_file << "MACROMOLECULE none\n";
+	grid_file.precision(3);
+	grid_file.setf(ios::fixed, ios::floatfield);
+	grid_file << "SPACING " << grid_spacing << "\n";
+	grid_file << "NELEMENTS " << map_x_dim << " " << map_y_dim << " " << map_z_dim << "\n";
+	grid_file << "CENTER " << map_x_center << " " << map_y_center << " " << map_z_center << "\n";
+	
+	unsigned int grid_points = (map_x_dim + 1) * (map_y_dim + 1) * (map_z_dim + 1);
+	std::string data_block;
+	data_block.reserve(6.5*grid_points); // at least zero + point + 3 decimals + linebreak = 6
+	for(unsigned int i=0; i < grid_points; i++)
+		data_block += num2str(grid_map[i]) + "\n";
+	
+	grid_file.write(data_block.c_str(), data_block.size());
+	
+	grid_file.close();
+}
+
+inline void write_grid_map_mrc(
+                               fp_num*       grid_map,
+                               std::string  &filename,
+                               unsigned int  map_x_dim,
+                               unsigned int  map_y_dim,
+                               unsigned int  map_z_dim,
+                               fp_num        map_x_center,
+                               fp_num        map_y_center,
+                               fp_num        map_z_center,
                                fp_num        grid_spacing,
                                fp_num        rho_min       = -1,
                                fp_num        rho_max       =  1,
-                               bool          new_extension = true
+                               bool          set_extension = true
                               )
 {
-	if(new_extension){
+	if(set_extension){
 		std::size_t ext = filename.find_last_of(".");
 		filename = filename.substr(0, ext) + ".grid.mrc";
 	}
+	cout << "Writing MRC grid map file [" << filename << "]\n";
 	std::ofstream map_file(filename, std::ifstream::binary);
 	if(map_file.fail()){
 		cout << "Error: Can't open grid map output file " << filename << ".\n";
@@ -284,25 +329,66 @@ inline void write_grid_map_mrc(
 	map_file.close();
 }
 
-inline std::vector<fp_num> read_map(
-                                    std::string  &filename,
-                                    int           map_type,
-                                    fp_num        map_x_center,
-                                    fp_num        map_y_center,
-                                    fp_num        map_z_center,
-                                    unsigned int  map_x_dim,
-                                    unsigned int  map_y_dim,
-                                    unsigned int  map_z_dim,
-                                    fp_num        grid_spacing,
-                                    int           write_mode = write_nothing
-                                   )
+inline void write_grid(
+                       fp_num*       grid_map,
+                       std::string  &filename,
+                       int           write_mode = write_grid_ad4
+                      )
+{
+	timeval runtime;
+	start_timer(runtime);
+	switch(write_mode){
+		case write_grid_ad4: write_grid_map_ad4(
+		                                        grid_map + 9,
+		                                        filename,
+		                                        grid_map[0],
+		                                        grid_map[1],
+		                                        grid_map[2],
+		                                        grid_map[3],
+		                                        grid_map[4],
+		                                        grid_map[5],
+		                                        grid_map[6],
+		                                        true
+		                                       );
+		                     cout << "<- Finished writing, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
+		                     break;
+		case write_grid_mrc: write_grid_map_mrc(
+		                                        grid_map + 9,
+		                                        filename,
+		                                        grid_map[0],
+		                                        grid_map[1],
+		                                        grid_map[2],
+		                                        grid_map[3],
+		                                        grid_map[4],
+		                                        grid_map[5],
+		                                        grid_map[6],
+		                                        grid_map[7],
+		                                        grid_map[8],
+		                                        true
+		                                       );
+		                     cout << "<- Finished writing, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
+		default:             break;
+	}
+}
+
+inline std::vector<fp_num> read_map_to_grid(
+                                            std::string  &filename,
+                                            int           map_type,
+                                            fp_num        map_x_center,
+                                            fp_num        map_y_center,
+                                            fp_num        map_z_center,
+                                            unsigned int  map_x_dim,
+                                            unsigned int  map_y_dim,
+                                            unsigned int  map_z_dim,
+                                            fp_num        grid_spacing
+                                           )
 {
 	timeval runtime;
 	start_timer(runtime);
 	
 	std::vector<fp_num> densities;
 	
-	cout << "Reading map file " << filename << "\n";
+	cout << "Reading map file [" << filename << "]\n";
 	std::ifstream map_file(filename, std::ifstream::binary);
 	if(map_file.fail()){
 		cout << "\nERROR: Can't open map file " << filename << ".\n";
@@ -596,30 +682,20 @@ inline std::vector<fp_num> read_map(
 	std::vector<fp_num> grid_map;
 	unsigned int g1 = map_x_dim + 1;
 	unsigned int g2 = g1 * (map_y_dim + 1);
-	grid_map.resize(g2 * (map_z_dim + 1));
+	grid_map.resize(g2 * (map_z_dim + 1) + 9);
+	grid_map[0]     = map_x_dim;
+	grid_map[1]     = map_y_dim;
+	grid_map[2]     = map_z_dim;
+	grid_map[3]     = map_x_center;
+	grid_map[4]     = map_y_center;
+	grid_map[5]     = map_z_center;
+	grid_map[6]     = grid_spacing;
+	
 	fp_num* density_data = densities.data();
 	fp_num* data_point;
 #ifdef MGLTOOLS_MATH_COMPARISON
 	fp_num ga, gb, gc;
 #endif
-	std::ofstream grid_file;
-	if(write_mode == write_ad4map){
-		std::size_t ext = filename.find_last_of(".");
-		std::string map_name = filename.substr(0, ext) + ".map";
-		grid_file.open(map_name);
-		if(grid_file.fail()){
-			cout << "Error: Can't open grid map output file " << map_name << ".\n";
-			exit(1);
-		}
-		grid_file << "GRID_PARAMETER_FILE none\n";
-		grid_file << "GRID_DATA_FILE none\n";
-		grid_file << "MACROMOLECULE none\n";
-		grid_file.precision(3);
-		grid_file.setf(ios::fixed, ios::floatfield);
-		grid_file << "SPACING " << grid_spacing << "\n";
-		grid_file << "NELEMENTS " << map_x_dim << " " << map_y_dim << " " << map_z_dim << "\n";
-		grid_file << "CENTER " << map_x_center << " " << map_y_center << " " << map_z_center << "\n";
-	}
 	rho_min = 0;
 	rho_max = 0;
 	for(unsigned int z = 0; z <= map_z_dim; z++){
@@ -674,37 +750,16 @@ inline std::vector<fp_num> read_map(
 					density -= rho_avg;
 					density /= rho_std;
 				}
-				grid_map[x + y*g1 + z*g2] = density;
+				grid_map[x + y*g1 + z*g2 + 9] = density;
 				rho_min = std::min(density, rho_min);
 				rho_max = std::max(density, rho_max);
-				if(write_mode == write_ad4map) grid_file << num2str(density) << "\n";
 			}
 		}
 	}
-	cout << "<- Finished interpolating ";
-	switch(write_mode){
-		case write_ad4map:   grid_file.close();
-		                     cout << "and writing AD4 ";
-		                     break;
-		case write_grid_mrc: write_grid_map_mrc(
-		                                        grid_map.data(),
-		                                        filename,
-		                                        map_x_center,
-		                                        map_y_center,
-		                                        map_z_center,
-		                                        map_x_dim,
-		                                        map_y_dim,
-		                                        map_z_dim,
-		                                        grid_spacing,
-		                                        rho_min,
-		                                        rho_max,
-		                                        true
-		                                       );
-		                     cout << "and writing MRC ";
-		default:             break;
-	}
-	cout << "grid map, took " << seconds_since(runtime)*1000.0 - file_reading_ms << " ms.\n\n";
-	cout << "Done. Overall time was " << seconds_since(runtime)*1000.0 << " ms.\n";
+	grid_map[7] = rho_min;
+	grid_map[8] = rho_max;
+	cout << "<- Finished interpolating grid map, took " << seconds_since(runtime)*1000.0 - file_reading_ms << " ms.\n\n";
+	
 	return grid_map;
 }
 

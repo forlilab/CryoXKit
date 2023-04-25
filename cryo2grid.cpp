@@ -24,11 +24,14 @@
 
 int main(int argc, const char* argv[])
 {
+	timeval runtime;
+	start_timer(runtime);
+	
 	string map_file="";
 	fp_num X_center, Y_center, Z_center;
 	int X_dim, Y_dim, Z_dim;
 	fp_num grid_spacing = 0.375;
-	int write_type = write_ad4map;
+	int write_type = write_grid_ad4;
 	// Check for command line parameters
 	if(argc>7){ // yes, there are some -- parameter required are map filename, grid center x,y,z, grid x,y,z dimensions, and grid spacing
 		map_file = argv[1];
@@ -49,18 +52,21 @@ int main(int argc, const char* argv[])
 		exit(1);
 	}
 	
-	std::vector<fp_num> density = read_map(
-	                                       map_file,
-	                                       automatic,
-	                                       X_center,
-	                                       Y_center,
-	                                       Z_center,
-	                                       X_dim,
-	                                       Y_dim,
-	                                       Z_dim,
-	                                       grid_spacing,
-	                                       write_type
-	                                      );
+	std::vector<fp_num> density = read_map_to_grid(
+	                                               map_file,
+	                                               automatic,
+	                                               X_center,
+	                                               Y_center,
+	                                               Z_center,
+	                                               X_dim,
+	                                               Y_dim,
+	                                               Z_dim,
+	                                               grid_spacing
+	                                              );
+	
+	write_grid(density.data(), map_file, write_type);
+	
+	cout << "Done. Overall time was " << seconds_since(runtime)*1000.0 << " ms.\n";
 	return 0;
 }
 
