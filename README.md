@@ -18,7 +18,7 @@ Once built to test everything works the following command can be used:
 
 It should produce the grid map file `1d3g_2fofc.map` in the `./example` folder and similar output:
 ```
-Reading map file example/1d3g_2fofc.dsn6
+Reading map file [example/1d3g_2fofc.dsn6]
     -> DSN6 endian-swapped, file size: 1728512
     -> x_dim = 115, y_dim = 120, z_dim = 112
     -> a_unit = 90.6, b_unit = 90.6, c_unit = 122.4
@@ -31,14 +31,20 @@ Reading map file example/1d3g_2fofc.dsn6
 	   0.0110    0.0064    0.0000
 	        0    0.0127   -0.0000
 	        0         0    0.0082
-    -> density coordinate range: (25.077, 13.544, -17.785) A to (54.468, 69.121, 40.277) A
+    -> density coordinate range: (25.0768, 13.5440, -17.7846) A to (54.4678, 69.1212, 40.2769) A
     -> density range: -2.581 to 12.665 (average: -0.029997 +/- 1.000289)
-<- Finished reading densities, took 6.419000 ms.
+<- Finished reading densities, took 7.132 ms.
 
 Interpolating density data for 40x40x40 grid (spacing: 0.375 A)
     -> grid start:  (34.930, 34.164, 3.003) A
     -> grid size:   (15.000, 15.000, 15.000) A
-<- Finished interpolating and writing AD4 grid map, took 8.768 ms.
+<- Finished interpolating grid map, took 0.678 ms.
 
-Done. Overall time was 15.202 ms.
+Adjusting density values using logistics function modifier
+<- Finished adjusting, took 0.545 ms.
+
+Writing AD4 grid map file [example/1d3g_2fofc.map]
+<- Finished writing, took 7.634 ms.
+
+Done. Overall runtime was 16.217 ms.
 ```

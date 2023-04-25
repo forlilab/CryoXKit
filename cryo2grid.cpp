@@ -79,7 +79,7 @@ int main(int argc, const char* argv[])
 	           write_type
 	          );
 	
-	cout << "Done. Overall time was " << seconds_since(runtime)*1000.0 << " ms.\n";
+	cout << "Done. Overall runtime was " << seconds_since(runtime)*1000.0 << " ms.\n";
 	return 0;
 }
 
