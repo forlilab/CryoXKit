@@ -8,9 +8,9 @@ On most platforms only "make" should be needed. On macOS the compiler in the Mak
 
 # Syntax
 
-Cryo2Grid needs parameters for the density map file, grid map center x, y, z coordinates, grid map x, y, z dimensions, and optionally the grid spacing (default is 0.375 A) as well as the type of map to write (0 .. nothing, 1 .. AD4 grid map, 2 .. MRC grid map):
+Cryo2Grid needs parameters for the density map file, grid map center x, y, z coordinates, grid map x, y, z dimensions, and optionally grid spacing (default is 0.375 A), type of map to write (0 .. nothing, 1 .. AD4 grid map, 2 .. MRC grid map), as well as the modifier function type (0 .. none, 1 .. logistics):
 
-`./cryo2grid mapfile center_x center_y center_z x_dim y_dim z_dim (spacing [0.375]) (write [1 = AD4 map])`
+`./cryo2grid mapfile center_x center_y center_z x_dim y_dim z_dim (spacing [0.375]) (write [1 = AD4 map]) (modifier fxn [1 = logistics])`
 
 Once built to test everything works the following command can be used:
 

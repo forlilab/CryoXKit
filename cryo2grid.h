@@ -14,6 +14,7 @@
 #define INCLUDED_MAP_READER
 
 #define DSN6_BLOCKSIZE 512
+#define MODIFY_NORMALIZED_DENSITIES
 
 enum map_types_supported{
 	automatic = 0,
@@ -25,8 +26,7 @@ enum map_types_supported{
 
 enum density_modifier_fxns{
 	no_modifier  = 0,
-	exp_modifier = 1,
-	log_modifier = 2
+	log_modifier = 1
 };
 
 enum grid_map_write_modes{
@@ -715,7 +715,7 @@ inline void write_grid_map_mrc(
 	header.x_origin = map_x_center - map_x_dim * grid_spacing * 0.5;
 	header.y_origin = map_y_center - map_y_dim * grid_spacing * 0.5;
 	header.z_origin = map_z_center - map_z_dim * grid_spacing * 0.5;
-	if((rho_min <= rho_max) && (std::min(rho_min, rho_max) >= 0)){
+	if((rho_min <= rho_max) && (0 >= std::min(rho_min, rho_max))){
 		header.val_min = rho_min;
 		header.val_max = rho_max;
 	}
@@ -728,16 +728,16 @@ inline void write_grid_map_mrc(
 }
 
 inline void write_grid(
-                       fp_num*      grid_map,
-                       std::string &filename,
-                       int          write_mode = write_grid_ad4
+                       std::vector<fp_num> grid_map,
+                       std::string        &filename,
+                       int                 write_mode = write_grid_ad4
                       )
 {
 	timeval runtime;
 	start_timer(runtime);
 	switch(write_mode){
 		case write_grid_ad4: write_grid_map_ad4(
-		                                        grid_map + 9,
+		                                        grid_map.data() + 9,
 		                                        filename,
 		                                        grid_map[0],
 		                                        grid_map[1],
@@ -751,7 +751,7 @@ inline void write_grid(
 		                     cout << "<- Finished writing, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
 		                     break;
 		case write_grid_mrc: write_grid_map_mrc(
-		                                        grid_map + 9,
+		                                        grid_map.data() + 9,
 		                                        filename,
 		                                        grid_map[0],
 		                                        grid_map[1],
@@ -769,23 +769,10 @@ inline void write_grid(
 	}
 }
 
-template<typename T>
-T fast_int_power(T val, unsigned int exponent)
-{
-	T result = 1;
-	while(exponent>1){
-		if(exponent & 1) result *= val;
-		val *= val;
-		exponent >>= 1;
-	}
-	if(exponent & 1) result *= val;
-	return result;
-}
-
 inline void modify_densities(
-                             fp_num*       densities,
-                             const int     mod_fxn    = no_modifier,
-                             const fp_num* fxn_params = NULL
+                             std::vector<fp_num> &densities,
+                             const int            mod_fxn    = no_modifier,
+                             const fp_num*        fxn_params = NULL
                             )
 {
 	if(mod_fxn == no_modifier) return;
@@ -793,28 +780,25 @@ inline void modify_densities(
 	start_timer(runtime);
 	cout << "Adjusting density values";
 	const unsigned int nr_points = (densities[0] + 1) * (densities[1] + 1) * (densities[2] + 1) + 9;
-	const fp_num dens_max         = densities[8];
-	fp_num rho_min = 0;
-	fp_num rho_max = 0;
+#ifdef MODIFY_NORMALIZED_DENSITIES
+	fp_num norm  = 10.0 / (std::max(fabs(densities[7]), fabs(densities[8])));
+	const fp_num dens_min        = densities[7] * norm;
+	const fp_num dens_max        = densities[8] * norm;
+#else
+	fp_num norm  = 1;
+	const fp_num dens_min        = densities[7];
+	const fp_num dens_max        = densities[8];
+#endif
+	fp_num rho_min               = 1e80;
+	fp_num rho_max               = 0;
 	fp_num density;
-	if(mod_fxn == exp_modifier){
-		cout << " using exponential function modifier\n";
-		const unsigned int exponent = fxn_params[0];
-		unsigned int pre_factor     = fast_int_power(10, exponent+1);
-		for(unsigned i=9; i<nr_points; i++){
-			density = pre_factor * fast_int_power(dens_max - densities[i], exponent);
-			densities[i] = density;
-			rho_min = std::min(density, rho_min);
-			rho_max = std::max(density, rho_max);
-		}
-	} else
 	if(mod_fxn == log_modifier){
 		cout << " using logistics function modifier\n";
-		const fp_num log_max    = fxn_params[1];
-		const fp_num rate       = fxn_params[2];
-		const fp_num exp_shift  = dens_max - (dens_max - densities[7]) * fxn_params[3]; // rho_max - x0*(rho_max - rho_min)
+		const fp_num log_max    = fxn_params[0];
+		const fp_num rate       = fxn_params[1];
+		const fp_num exp_shift  = dens_max - (dens_max - dens_min) * fxn_params[2]; // rho_max - x0*(rho_max - rho_min)
 		for(unsigned i=9; i<nr_points; i++){
-			density = log_max / (1.0 + exp(rate * (exp_shift - densities[i])));
+			density = log_max / (1.0 + exp(rate * (exp_shift - densities[i] * norm)));
 			densities[i] = density;
 			rho_min = std::min(density, rho_min);
 			rho_max = std::max(density, rho_max);
