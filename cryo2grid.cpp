@@ -10,8 +10,10 @@
 /********************************************/
 
 
-#include "config.h"
-#include "cryo2grid.h"
+#include "include/config.h"
+#include "include/map_reader.h"
+#include "include/map_writer.h"
+#include "include/map_modifier.h"
 
 #include <stdlib.h>
 #include <iostream>

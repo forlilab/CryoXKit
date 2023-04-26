@@ -30,4 +30,4 @@ $(EXECUTABLE): $(OBJS)
 	$(CXX) $(LDFLAGS) -o $(EXECUTABLE) cryo2grid.cpp $(OBJS)
 
 clean:
-	rm -f $(OBJS) *.d $(EXECUTABLE) example/*.map
+	rm -f $(OBJS) *.d $(EXECUTABLE) example/*.map example/*.grid.mrc
