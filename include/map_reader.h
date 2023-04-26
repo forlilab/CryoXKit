@@ -432,7 +432,7 @@ inline std::vector<fp_num> read_map_to_grid(
 				}
 			}
 		}
-	} else{
+	} else{ // MRC
 		for(unsigned int z = 0; z < z_dim; z++){ // z slow
 			map_file.read(data_block, f_xy_stride);
 			data_count = 0;

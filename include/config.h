@@ -15,6 +15,7 @@
 
 #define USE_SINGLE_PRECISION
 #define MODIFY_NORMALIZED_DENSITIES
+#define PARALLELIZE
 
 enum map_types_supported{
 	automatic = 0,

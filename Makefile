@@ -8,7 +8,7 @@
 ##########################################
 
 CXX=g++
-CXXFLAGS=-Wall -march=native -Wextra -std=c++11 -O3
+CXXFLAGS=-Wall -march=native -Wextra -std=c++11 -O3 -fopenmp
 LDFLAGS=
 EXECUTABLE=cryo2grid
 

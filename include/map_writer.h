@@ -51,6 +51,7 @@ inline void write_grid_map_ad4(
 		std::size_t ext = filename.find_last_of(".");
 		filename = filename.substr(0, ext) + ".map";
 	}
+	#pragma omp critical
 	cout << "Writing AD4 grid map file [" << filename << "]\n";
 	std::ofstream grid_file(filename);
 	if(grid_file.fail()){
@@ -96,6 +97,7 @@ inline void write_grid_map_mrc(
 		std::size_t ext = filename.find_last_of(".");
 		filename = filename.substr(0, ext) + ".grid.mrc";
 	}
+	#pragma omp critical
 	cout << "Writing MRC grid map file [" << filename << "]\n";
 	std::ofstream map_file(filename, std::ifstream::binary);
 	if(map_file.fail()){
@@ -172,16 +174,17 @@ inline void write_grid_map_mrc(
 }
 
 inline void write_grid(
-                       std::vector<fp_num> grid_map,
-                       std::string        &filename,
-                       int                 write_mode = write_grid_ad4
+                       fp_num*      grid_map,
+                       std::string &filename,
+                       int          write_mode = write_grid_ad4,
+                       bool         timing     = true
                       )
 {
 	timeval runtime;
 	start_timer(runtime);
 	switch(write_mode){
 		case write_grid_ad4: write_grid_map_ad4(
-		                                        grid_map.data() + 9,
+		                                        grid_map + 9,
 		                                        filename,
 		                                        grid_map[0],
 		                                        grid_map[1],
@@ -192,10 +195,10 @@ inline void write_grid(
 		                                        grid_map[6],
 		                                        true
 		                                       );
-		                     cout << "<- Finished writing, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
+		                     if(timing) cout << "<- Finished writing, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
 		                     break;
 		case write_grid_mrc: write_grid_map_mrc(
-		                                        grid_map.data() + 9,
+		                                        grid_map + 9,
 		                                        filename,
 		                                        grid_map[0],
 		                                        grid_map[1],
@@ -208,7 +211,7 @@ inline void write_grid(
 		                                        grid_map[8],
 		                                        true
 		                                       );
-		                     cout << "<- Finished writing, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
+		                     if(timing) cout << "<- Finished writing, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
 		default:             break;
 	}
 }
