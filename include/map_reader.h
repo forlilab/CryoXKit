@@ -197,7 +197,7 @@ inline std::vector<fp_num> read_map_to_grid(
 	                           map_file.seekg(0, std::ios::beg);
 	char map_header[256];
 	if(!map_file.read(map_header, 256)){ // the first 256 Bytes are all that's needed really
-		cout << "\nERROR: Can't reader header.\n";
+		cout << "\nERROR: Can't read header.\n";
 		exit(3);
 	}
 	char* header = map_header;
