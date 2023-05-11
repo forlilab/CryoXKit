@@ -58,21 +58,22 @@ int main(int argc, const char* argv[])
 		std::size_t ext = grid.find_last_of(".");
 		bool gridfiles  = (grid.substr(ext).compare(".map")==0);
 		if(!gridfiles){
-			if(argc>7)
-			X_center = atof(argv[2]); // grid center
-			Y_center = atof(argv[3]);
-			Z_center = atof(argv[4]);
-			X_dim    = atoi(argv[5]); // dimensions
-			Y_dim    = atoi(argv[6]);
-			Z_dim    = atoi(argv[7]);
-			if((X_dim <= 0) || (Y_dim <= 0) || (Z_dim <= 0)){
-				cout << "ERROR: Please ensure grid dimensions are each greater than 1.\n";
-				exit(1);
-			}
-			if(argc>8) grid_spacing = atof(argv[8]); // grid spacing
-			if(argc>9) write_type = atoi(argv[9]); // write type
-			if(argc>10) mod_type = atoi(argv[10]); // modifier fxn type
-			argument_error = false;
+			if(argc>7){
+				X_center = atof(argv[2]); // grid center
+				Y_center = atof(argv[3]);
+				Z_center = atof(argv[4]);
+				X_dim    = atoi(argv[5]); // dimensions
+				Y_dim    = atoi(argv[6]);
+				Z_dim    = atoi(argv[7]);
+				if((X_dim <= 0) || (Y_dim <= 0) || (Z_dim <= 0)){
+					cout << "ERROR: Please ensure grid dimensions are each greater than 1.\n";
+					exit(1);
+				}
+				if(argc>8) grid_spacing = atof(argv[8]); // grid spacing
+				if(argc>9) write_type = atoi(argv[9]); // write type
+				if(argc>10) mod_type = atoi(argv[10]); // modifier fxn type
+				argument_error = false;
+			} else argument_error = true;
 		} else{
 			if(grid_filter(grid.substr(0,ext))) grid_files.push_back(grid);
 			int count = 3;
