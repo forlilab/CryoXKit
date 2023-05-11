@@ -1,0 +1,52 @@
+Metadata-Version: 2.1
+Name: cryo2grid
+Version: 4144619
+Summary: Python interface to Cryo2Grid
+Home-page: https://forlilab.org
+Author: Andreas F. Tillack, Althea A. Hansel, Matthew Holcomb, Stefano Forli
+Author-email: forli@scripps.edu
+License: LGPL-2.1
+Classifier: Environment :: Console
+Classifier: Environment :: Other Environment
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v2.1 (LGPL-2.1)
+Classifier: Natural Language :: English
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: C++
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.5.*
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# Cryo2Grid - Python API
+
+### Requirements
+
+Minimum requirements:
+* Python (>=3.5)
+* SWIG
+
+### Installation (from source)
+
+We recommend to install the Anaconda distribution (https://www.continuum.io/downloads) for a clean python environment with all prerequisites already installed. To install:
+```bash
+$ conda create -n cryo2grid python=3
+$ conda activate cryo2grid
+$ conda install -c conda-forge swig
+```
+
+To install the Python bindings:
+```bash
+$ python setup.py build install
+```
+

@@ -1,0 +1,9 @@
+name: cryo2grid
+channels:
+  - conda-forge
+dependencies:
+  - python >=3.5
+  - swig
+  - sphinx
+  - sphinx_rtd_theme
+
