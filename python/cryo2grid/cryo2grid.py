@@ -13,7 +13,7 @@ from .cryo2grid_wrapper import *
 
 class Cryo2Grid:
     def __init__(self, map_file=None):
-        """Initialize an ADNG object.
+        """Initialize the Cryo2Grid object.
 
         Arguments:
             map_file (str): Map (X-ray or CryoEM) file name
