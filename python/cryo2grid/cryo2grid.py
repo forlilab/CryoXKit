@@ -27,6 +27,8 @@ class Cryo2Grid:
         self._map_y_center = None
         self._map_z_center = None
         self._grid_spacing = None
+        self._grid_files   = None
+        self._gridmaps     = None
     
     def ReadGridMaps(self, gridmap_files):
         """Read AD4 grid maps.
@@ -35,17 +37,18 @@ class Cryo2Grid:
             gridmap_files (list of strings): Grid map file names
 
         """
-        gridmaps = read_grid_maps(gridmap_files);
-        self._map_x_dim    = (gridmaps[0])[0]
-        self._map_y_dim    = (gridmaps[0])[1]
-        self._map_z_dim    = (gridmaps[0])[2]
-        self._map_x_center = (gridmaps[0])[3]
-        self._map_y_center = (gridmaps[0])[4]
-        self._map_z_center = (gridmaps[0])[5]
-        self._grid_spacing = (gridmaps[0])[6]
-        return gridmaps;
+        self._grid_files   = filter_grid_files(gridmap_files)
+        self._gridmaps     = read_grid_maps(self._grid_files);
+        self._map_x_dim    = (self._gridmaps[0])[0]
+        self._map_y_dim    = (self._gridmaps[0])[1]
+        self._map_z_dim    = (self._gridmaps[0])[2]
+        self._map_x_center = (self._gridmaps[0])[3]
+        self._map_y_center = (self._gridmaps[0])[4]
+        self._map_z_center = (self._gridmaps[0])[5]
+        self._grid_spacing = (self._gridmaps[0])[6]
+        return self._gridmaps;
     
-    def WriteGridMaps(self, density, gridmaps, gridmap_files, write_type=1):
+    def WriteGridMaps(self, density, write_type=1):
         """Read AD4 grid maps.
 
         Args:
@@ -55,7 +58,9 @@ class Cryo2Grid:
             write_type: type of grid map file to write (0 .. nothing, 1 .. AD4, 2 .. MRC)
 
         """
-        write_grid_maps(density, gridmaps, gridmap_files, write_type);
+        if self._grid_files is None:
+            raise RuntimeError('Error: No grid maps have been read yet.')
+        write_grid_maps(density, self._gridmaps, self._grid_files, write_type);
     
     def ReadMapFile(self, map_file=None, map_x_dim=None, map_y_dim=None, map_z_dim=None, map_x_center=None, map_y_center=None, map_z_center=None, grid_spacing=None):
         """Read Map (X-ray or CryoEM) file

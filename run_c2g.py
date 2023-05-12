@@ -12,5 +12,5 @@ c2g = Cryo2Grid(args.map_file)
 grid_maps = c2g.ReadGridMaps(args.grid_maps)
 density   = c2g.ReadMapFile()
 modified  = c2g.ModifyDensity(density)
-c2g.WriteGridMaps(modified, grid_maps, args.grid_maps, 1)
+c2g.WriteGridMaps(modified, 1)
 

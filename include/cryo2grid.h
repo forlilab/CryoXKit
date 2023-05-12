@@ -31,6 +31,21 @@ inline bool grid_filter(std::string name)
 	return !((name.substr(ext).compare(".e")==0) || (name.substr(ext).compare(".d")==0) || (name.substr(ext).compare(".H")==0) || (name.substr(ext).compare(".H")==1));
 }
 
+inline std::vector<std::string> filter_grid_files(std::vector<std::string> grid_files)
+{
+	std::vector<std::string> filtered;
+	for(unsigned int i=0; i<grid_files.size(); i++){
+		std::size_t ext  = grid_files[i].find_last_of(".");
+		if((grid_files[i].substr(ext).compare(".map")==0) && grid_filter(grid_files[i].substr(0,ext)))
+			filtered.push_back(grid_files[i]);
+	}
+	if(filtered.size() == 0){
+		cout << "ERROR: Could not find grid map files or only e, d, or H* maps were specified.\n";
+		exit(1);
+	}
+	return filtered;
+}
+
 std::vector<GridMap> read_grid_maps(std::vector<std::string> grid_files);
 
 void write_grid_maps(
