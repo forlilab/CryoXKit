@@ -36,6 +36,10 @@ enum grid_map_write_modes{
 	write_grid_mrc = 2
 };
 
+#ifdef PARALLELIZE
+#include <omp.h>
+#endif
+
 static unsigned short static_one = 1;
 #define HOST_LITTLE_ENDIAN (*(unsigned char*)&static_one == 1)
 

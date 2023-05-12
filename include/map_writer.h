@@ -13,6 +13,8 @@
 #ifndef INCLUDED_MAP_WRITER
 #define INCLUDED_MAP_WRITER
 
+#include "config.h"
+
 #include <stdlib.h>
 #include <math.h>
 #include <iomanip>
@@ -51,7 +53,9 @@ inline void write_grid_map_ad4(
 		std::size_t ext = filename.find_last_of(".");
 		filename = filename.substr(0, ext) + ".map";
 	}
+#ifdef PARALLELIZE
 	#pragma omp critical
+#endif
 	cout << "Writing AD4 grid map file [" << filename << "]\n";
 	std::ofstream grid_file(filename);
 	if(grid_file.fail()){
@@ -97,7 +101,9 @@ inline void write_grid_map_mrc(
 		std::size_t ext = filename.find_last_of(".");
 		filename = filename.substr(0, ext) + ".grid.mrc";
 	}
+#ifdef PARALLELIZE
 	#pragma omp critical
+#endif
 	cout << "Writing MRC grid map file [" << filename << "]\n";
 	std::ofstream map_file(filename, std::ifstream::binary);
 	if(map_file.fail()){

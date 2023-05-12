@@ -8,6 +8,11 @@
 ##########################################
 
 CXX=g++
+UNAME_CMD := $(shell uname -s)
+# for OpenMP support on macOS use clang++ (i.e. from Brew)
+ifeq ($(UNAME_CMD),Darwin)
+	CXX=clang++
+endif
 CXXFLAGS=-Wall -march=native -Wextra -std=c++11 -O3 -fopenmp
 LDFLAGS=
 EXECUTABLE=cryo2grid

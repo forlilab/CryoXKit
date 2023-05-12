@@ -27,13 +27,15 @@
 
 using namespace std;
 
-inline void modify_densities(
-                             std::vector<fp_num> &densities,
-                             const int            mod_fxn    = no_modifier,
-                             const fp_num*        fxn_params = NULL
-                            )
+inline std::vector<fp_num> modify_densities(
+                                            std::vector<fp_num> densities,
+                                            const int           mod_fxn    = no_modifier,
+                                            const fp_num        log_max    = -3.0,
+                                            const fp_num        rate       = 2.0,
+                                            const fp_num        x0         = 0.5
+                                           )
 {
-	if(mod_fxn == no_modifier) return;
+	if(mod_fxn == no_modifier) return densities;
 	timeval runtime;
 	start_timer(runtime);
 	cout << "Adjusting density values";
@@ -49,22 +51,30 @@ inline void modify_densities(
 #endif
 	fp_num rho_min               = 1e80;
 	fp_num rho_max               = 0;
+	std::vector<fp_num> modified_density;
+	modified_density.resize(densities.size());
+	modified_density[0] = densities[0];
+	modified_density[1] = densities[1];
+	modified_density[2] = densities[2];
+	modified_density[3] = densities[3];
+	modified_density[4] = densities[4];
+	modified_density[5] = densities[5];
+	modified_density[6] = densities[6];
 	fp_num density;
 	if(mod_fxn == log_modifier){
 		cout << " using logistics function modifier\n";
-		const fp_num log_max    = fxn_params[0];
-		const fp_num rate       = fxn_params[1];
-		const fp_num exp_shift  = dens_max - (dens_max - dens_min) * fxn_params[2]; // rho_max - x0*(rho_max - rho_min)
+		const fp_num exp_shift  = dens_max - (dens_max - dens_min) * x0; // rho_max - x0*(rho_max - rho_min)
 		for(unsigned i=9; i<nr_points; i++){
 			density = log_max / (1.0 + exp(rate * (exp_shift - densities[i] * norm)));
-			densities[i] = density;
+			modified_density[i] = density;
 			rho_min = std::min(density, rho_min);
 			rho_max = std::max(density, rho_max);
 		}
 	}
-	densities[7] = rho_min;
-	densities[8] = rho_max;
+	modified_density[7] = rho_min;
+	modified_density[8] = rho_max;
 	cout << "<- Finished adjusting, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
+	return modified_density;
 }
 
 #endif // INCLUDED_MAP_MODIFIER

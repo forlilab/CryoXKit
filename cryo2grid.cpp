@@ -9,31 +9,65 @@
 /*           Forli Lab @ Scripps Research   */
 /********************************************/
 
-
+#ifdef PARALLELIZE
+#include <omp.h>
+#endif
 #include "include/config.h"
 #include "include/grid_reader.h"
 #include "include/map_reader.h"
 #include "include/map_writer.h"
 #include "include/map_modifier.h"
+#include "include/cryo2grid.h"
 
-#include <stdlib.h>
-#include <iostream>
-#include <vector>
-#include <fstream>
-#include <sstream>
-#include <cstring>
-#include <string>
-#include <iterator>
-
-#ifdef PARALLELIZE
-#include <omp.h>
-#endif
-
-inline bool grid_filter(std::string name)
+std::vector<GridMap> read_grid_maps(std::vector<std::string> grid_files)
 {
-	std::size_t ext = name.find_last_of(".");
-	if(ext == std::string::npos) return false;
-	return !((name.substr(ext).compare(".e")==0) || (name.substr(ext).compare(".d")==0) || (name.substr(ext).compare(".H")==0) || (name.substr(ext).compare(".H")==1));
+	std::vector<GridMap> grid_maps;
+	if(grid_files.size() > 0){
+		timeval runtime;
+		start_timer(runtime);
+		int X_dim = 0;
+		int Y_dim = 0;
+		int Z_dim = 0;
+		cout << "Reading grid map files:\n";
+		cout << "\t-> " << grid_files[0] << "\n";
+		grid_maps.push_back(read_grid_map(grid_files[0], X_dim, Y_dim, Z_dim));
+		grid_maps.resize(grid_files.size());
+		#pragma omp parallel for
+		for(unsigned int i=1; i<grid_files.size(); i++){
+			#pragma omp critical
+			cout << "\t-> " << grid_files[i] << "\n";
+			grid_maps[i] = read_grid_map(grid_files[i], X_dim, Y_dim, Z_dim);
+		}
+		cout << "<- Done, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
+	}
+	return grid_maps;
+}
+
+void write_grid_maps(
+                     std::vector<fp_num> density,
+                     std::vector<GridMap> grid_maps,
+                     std::vector<std::string> grid_files,
+                     int write_type
+                    )
+{
+	if(grid_files.size() > 0){
+		int X_dim = (grid_maps[0])[0];
+		int Y_dim = (grid_maps[0])[1];
+		int Z_dim = (grid_maps[0])[2];
+		#pragma omp parallel for
+		for(unsigned int i=0; i<grid_files.size(); i++){
+			unsigned int grid_points = (X_dim + 1) * (Y_dim + 1) * (Z_dim + 1) + 9;
+			for(unsigned int j=9; j<grid_points; j++)
+				(grid_maps[i])[j] += density[j];
+			write_grid(
+			           grid_maps[i].data(),
+			           grid_files[i],
+			           write_type,
+			           false
+			          );
+		}
+		cout << "\n";
+	}
 }
 
 int main(int argc, const char* argv[])
@@ -42,10 +76,10 @@ int main(int argc, const char* argv[])
 	start_timer(runtime);
 	
 	string map_file="";
-	fp_num X_center, Y_center, Z_center;
 	int X_dim = 0;
 	int Y_dim = 0;
 	int Z_dim = 0;
+	fp_num X_center, Y_center, Z_center;
 	fp_num grid_spacing = 0.375;
 	int write_type = write_grid_ad4;
 	int mod_type   = log_modifier;
@@ -87,7 +121,7 @@ int main(int argc, const char* argv[])
 			if(argc>count) mod_type = atoi(argv[count]);
 			argument_error = (grid_files.size() == 0);
 			if(argument_error){
-				cout << "ERROR: Only e, d, or H* maps specified.\n";
+				cout << "ERROR: Could not find grid map files or only e, d, or H* maps were specified.\n";
 				exit(1);
 			}
 		}
@@ -100,23 +134,16 @@ int main(int argc, const char* argv[])
 		exit(1);
 	}
 	
-	std::vector<fp_num*> grid_maps;
-	if(grid_files.size() > 0){
-		cout << "Reading grid map files:\n";
-		cout << "\t-> " << grid_files[0] << "\n";
-		grid_maps.push_back(read_grid_map(grid_files[0], X_dim, Y_dim, Z_dim));
+	std::vector<GridMap> grid_maps;
+	if(grid_files.size()>0){
+		grid_maps    = read_grid_maps(grid_files);
+		X_dim        = (grid_maps[0])[0];
+		Y_dim        = (grid_maps[0])[1];
+		Z_dim        = (grid_maps[0])[2];
 		X_center     = (grid_maps[0])[3];
 		Y_center     = (grid_maps[0])[4];
 		Z_center     = (grid_maps[0])[5];
 		grid_spacing = (grid_maps[0])[6];
-		grid_maps.resize(grid_files.size());
-		#pragma omp parallel for
-		for(unsigned int i=1; i<grid_files.size(); i++){
-			#pragma omp critical
-			cout << "\t-> " << grid_files[i] << "\n";
-			grid_maps[i] = read_grid_map(grid_files[i], X_dim, Y_dim, Z_dim);
-		}
-		cout << "<- Done, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
 	}
 	
 	std::vector<fp_num> density = read_map_to_grid(
@@ -131,30 +158,16 @@ int main(int argc, const char* argv[])
 	                                               grid_spacing
 	                                              );
 	
-	const fp_num fxn_params[3] = {-3, 2, 0.5};
-	modify_densities(
-	                 density,
-	                 mod_type,
-	                 fxn_params
-	                );
+	std::vector<fp_num> modified = modify_densities(
+	                                                density,
+	                                                mod_type
+	                                               );
 	
-	if(grid_files.size() > 0){
-		#pragma omp parallel for
-		for(unsigned int i=0; i<grid_files.size(); i++){
-			unsigned int grid_points = (X_dim + 1) * (Y_dim + 1) * (Z_dim + 1) + 9;
-			for(unsigned int j=9; j<grid_points; j++)
-				(grid_maps[i])[j] += density[j];
-			write_grid(
-			           grid_maps[i],
-			           grid_files[i],
-			           write_type,
-			           false
-			          );
-		}
-		cout << "\n";
+	if(grid_files.size()>0){
+		write_grid_maps(modified, grid_maps, grid_files, write_type);
 	} else{
 		write_grid(
-		           density.data(),
+		           modified.data(),
 		           map_file,
 		           write_type
 		          );

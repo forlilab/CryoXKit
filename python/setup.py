@@ -74,7 +74,7 @@ def find_version():
     except:
         pass
     
-    init_file = os.path.join(base_dir, 'cryo2grid', '__init__.py') 
+    init_file = os.path.join(base_dir, 'cryo2grid', '__init__.py')
     with open(init_file) as f:
         for line in f:
             version_match = re.match(r'^__version__ = "(.+?)"$', line)
@@ -105,7 +105,8 @@ class CustomBuild(build):
         # The src copy is done outside setup.py before we start creating the wheels
         # Source: https://github.com/pypa/pip/issues/3500
         if not os.path.exists('src'):
-            shutil.copytree('../include/', 'src',ignore=shutil.ignore_patterns('*.o', '*.d'))
+            shutil.copytree('../include/', 'src/include',ignore=shutil.ignore_patterns('*.o', '*.d'))
+            shutil.copy('../cryo2grid.cpp', 'src')
 
         self.run_command('build_ext')
         build.run(self)
@@ -116,7 +117,8 @@ class CustomInstall(install):
     def run(self):
         # This is not called when creating wheels for linux in the docker image
         if not os.path.exists('src'):
-            shutil.copytree('../include', 'src',ignore=shutil.ignore_patterns('*.o', '*.d'))
+            shutil.copytree('../include', 'src/include',ignore=shutil.ignore_patterns('*.o', '*.d'))
+            shutil.copy('../cryo2grid.cpp', 'src')
 
         self.run_command('build_ext')
         install.run(self)
@@ -136,7 +138,8 @@ class CustomSdist(sdist):
 
     def run(self):
         if not os.path.exists('src'):
-            shutil.copytree('../include/', 'src',ignore=shutil.ignore_patterns('*.o', '*.d'))
+            shutil.copytree('../include/', 'src/include',ignore=shutil.ignore_patterns('*.o', '*.d'))
+            shutil.copy('../cryo2grid.cpp', 'src')
 
         sdist.run(self)
 
@@ -183,8 +186,6 @@ class CustomBuildExt(build_ext):
         # Use g++ by default
         self.compiler.compiler_so[0] = "g++"
         if platform.system() == 'Darwin':
-            # To get the right @rpath on macos for libraries
-            self.extensions[0].extra_link_args.append('-Wl,-rpath,' + '/usr/lib')
             # Use clang++ on macOS (use <brew install llvm> to install to get OpenMP)
             self.compiler.compiler_so[0] = "clang++"
 
@@ -201,7 +202,7 @@ class CustomBuildExt(build_ext):
         self.compiler.compiler_so.insert(2, "-Wno-deprecated")
         self.compiler.compiler_so.append("-std=gnu++11")
         self.compiler.compiler_so.append("-Wno-long-long")
-        self.compiler.compiler_so.append("-fopenmp")
+#        self.compiler.compiler_so.append("-fopenmp")
 
         print('- compiler options: %s' % self.compiler.compiler_so)
         build_ext.build_extensions(self)
@@ -209,15 +210,15 @@ class CustomBuildExt(build_ext):
 
 # Dirty fix when the compilation is not done in ./python
 # Fix for readthedocs
-c2g_swig_interface = 'cryo2grid/c2g.i'
+c2g_swig_interface = 'cryo2grid/cryo2grid.i'
 package_dir = {}
 if os.path.exists('python'):
     c2g_swig_interface = 'python/' + c2g_swig_interface
     package_dir = {'cryo2grid': 'python/cryo2grid'}
 
 c2g_extension = Extension(
-    'cryo2grid._c2g_wrapper',
-    sources=[c2g_swig_interface],
+    'cryo2grid._cryo2grid_wrapper',
+    sources=['src/cryo2grid.cpp', c2g_swig_interface],
     swig_opts=['-threads']
 )
 

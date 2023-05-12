@@ -27,6 +27,8 @@
 
 using namespace std;
 
+typedef std::vector<float> GridMap;
+
 inline float map2float(const char* c)
 // This function converts what we typically find in an autogrid map file into a
 // floating point number - just a bit quicker than the usual sscanf()
@@ -72,7 +74,7 @@ inline float map2float(const char* c)
 	return result;
 }
 
-inline fp_num* read_grid_map(string filename, int &sizeX, int &sizeY, int &sizeZ, fp_num* map_storage = NULL)
+inline GridMap read_grid_map(string filename, int &sizeX, int &sizeY, int &sizeZ)
 {
 	unsigned long size;
 	ifstream file(filename.c_str(),ifstream::in);
@@ -131,8 +133,8 @@ inline fp_num* read_grid_map(string filename, int &sizeX, int &sizeY, int &sizeZ
 		cout << "ERROR: Grid map file does not NELEMENTS, SPACING, and CENTER fields.";
 		exit(7);
 	}
-	fp_num* data = map_storage;
-	if(data == NULL) data = (fp_num*)malloc(sizeof(fp_num)*(sizeX+1)*(sizeY+1)*(sizeZ+1) + 9);
+	GridMap data;
+	data.resize((sizeX+1)*(sizeY+1)*(sizeZ+1) + 9);
 	data[0] = sizeX;
 	data[1] = sizeY;
 	data[2] = sizeZ;
@@ -140,7 +142,7 @@ inline fp_num* read_grid_map(string filename, int &sizeX, int &sizeY, int &sizeZ
 	data[4] = center_y;
 	data[5] = center_z;
 	data[6] = spacing;
-	fp_num* mypoi = data + 9;
+	GridMap::iterator mypoi = data.begin() + 9;
 	//reading values
 	fp_num d;
 	fp_num val_min = 1e80;

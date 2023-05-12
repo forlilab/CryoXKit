@@ -169,7 +169,7 @@ inline int determine_map_type(char* &header)
 }
 
 inline std::vector<fp_num> read_map_to_grid(
-                                            std::string &filename,
+                                            std::string  filename,
                                                      int map_type,
                                             unsigned int map_x_dim,
                                             unsigned int map_y_dim,
