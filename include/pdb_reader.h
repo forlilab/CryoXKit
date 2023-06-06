@@ -39,10 +39,17 @@ typedef struct
 	char         atom_type[4]; // "N"
 } PDBatom;
 
+// trim input string range -- careful: no range checking
+static inline void range_trim_to_char(std::string s, unsigned int start, unsigned int end, char* c) {
+	unsigned int count = 0;
+	for(unsigned int i = start; i<end; i++)
+		if(!std::isspace(s[i])) c[count++] = s[i];
+	c[count] = '\0';
+}
 
-std::vector<ReceptorAtom> read_pdb_atoms(
-                                         std::string filename
-                                        )
+std::vector<PDBatom> read_pdb_atoms(
+                                    std::string filename
+                                   )
 {
 	std::vector<PDBatom> atoms;
 	PDBatom current;

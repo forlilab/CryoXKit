@@ -18,6 +18,7 @@
 #include "include/map_writer.h"
 #include "include/map_modifier.h"
 #include "include/cryo2grid.h"
+#include "include/pdb_reader.h"
 
 std::vector<GridMap> read_grid_maps(std::vector<std::string> grid_files)
 {
