@@ -67,7 +67,7 @@ def find_version():
 
         if git_output.startswith('v'):
             git_output = git_output[1:]
-        version = git_output.replace('dirty', 'mod').replace('-', '+', 1).replace('-', '.')
+        version = "0.dev" # + git_output.replace('dirty', 'mod').replace('-', '+', 1).replace('-', '.')
 
         print('Version found %s (from git describe)' % version)
         return version
@@ -236,7 +236,7 @@ setup(
     cmdclass={'build': CustomBuild, 'build_ext': CustomBuildExt, 'install': CustomInstall, 'sdist': CustomSdist},
     packages=['cryo2grid'],
     package_dir=package_dir,
-    python_requires='>=3.5.*',
+    python_requires='>=3.5.0',
     ext_modules=[c2g_extension],
     classifiers=[
         'Environment :: Console',
