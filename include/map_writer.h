@@ -190,23 +190,22 @@ inline void write_grid(
 	start_timer(runtime);
 	switch(write_mode){
 		case write_grid_ad4: write_grid_map_ad4(
-		                                        grid_map + 9,
+		                                        grid_map + (unsigned int)grid_map[0],
 		                                        filename,
-		                                        grid_map[0],
 		                                        grid_map[1],
 		                                        grid_map[2],
 		                                        grid_map[3],
 		                                        grid_map[4],
 		                                        grid_map[5],
 		                                        grid_map[6],
+		                                        grid_map[7],
 		                                        true
 		                                       );
 		                     if(timing) cout << "<- Finished writing, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
 		                     break;
 		case write_grid_mrc: write_grid_map_mrc(
-		                                        grid_map + 9,
+		                                        grid_map + (unsigned int)grid_map[0],
 		                                        filename,
-		                                        grid_map[0],
 		                                        grid_map[1],
 		                                        grid_map[2],
 		                                        grid_map[3],
@@ -215,6 +214,7 @@ inline void write_grid(
 		                                        grid_map[6],
 		                                        grid_map[7],
 		                                        grid_map[8],
+		                                        grid_map[9],
 		                                        true
 		                                       );
 		                     if(timing) cout << "<- Finished writing, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;

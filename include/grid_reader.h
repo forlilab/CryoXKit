@@ -134,15 +134,16 @@ inline GridMap read_grid_map(string filename, int &sizeX, int &sizeY, int &sizeZ
 		exit(7);
 	}
 	GridMap data;
-	data.resize((sizeX+1)*(sizeY+1)*(sizeZ+1) + 9);
-	data[0] = sizeX;
-	data[1] = sizeY;
-	data[2] = sizeZ;
-	data[3] = center_x;
-	data[4] = center_y;
-	data[5] = center_z;
-	data[6] = spacing;
-	GridMap::iterator mypoi = data.begin() + 9;
+	data.resize((sizeX+1)*(sizeY+1)*(sizeZ+1) + 10);
+	data[0] = 10;
+	data[1] = sizeX;
+	data[2] = sizeY;
+	data[3] = sizeZ;
+	data[4] = center_x;
+	data[5] = center_y;
+	data[6] = center_z;
+	data[7] = spacing;
+	GridMap::iterator mypoi = data.begin() + (unsigned int)data[0];
 	//reading values
 	fp_num d;
 	fp_num val_min = 1e80;
@@ -158,8 +159,8 @@ inline GridMap read_grid_map(string filename, int &sizeX, int &sizeY, int &sizeZ
 				*(mypoi++) = d;
 			}
 	file.close();
-	data[7] = val_min;
-	data[8] = val_max;
+	data[8] = val_min;
+	data[9] = val_max;
 	
 	return data;
 }

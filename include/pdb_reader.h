@@ -51,11 +51,14 @@ std::vector<PDBatom> read_pdb_atoms(
                                     std::string filename
                                    )
 {
+	timeval runtime;
+	start_timer(runtime);
+	cout << "Reading pdb(qt) file [" << filename << "] ... ";
 	std::vector<PDBatom> atoms;
 	PDBatom current;
 	std::ifstream file(filename);
 	if(file.fail()){
-		cout << "Error: Can't open pdb(qt) file " << filename << ".\n";
+		cout << "\nERROR: Can't open file.\n";
 		exit(1);
 	}
 	std::string line;
@@ -79,6 +82,7 @@ std::vector<PDBatom> read_pdb_atoms(
 		}
 	}
 	file.close();
+	cout << "Done, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
 	return atoms;
 }
 

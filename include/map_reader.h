@@ -479,14 +479,15 @@ inline std::vector<fp_num> read_map_to_grid(
 	std::vector<fp_num> grid_map;
 	unsigned int g1 = map_x_dim + 1;
 	unsigned int g2 = g1 * (map_y_dim + 1);
-	grid_map.resize(g2 * (map_z_dim + 1) + 9);
-	grid_map[0]     = map_x_dim;
-	grid_map[1]     = map_y_dim;
-	grid_map[2]     = map_z_dim;
-	grid_map[3]     = map_x_center;
-	grid_map[4]     = map_y_center;
-	grid_map[5]     = map_z_center;
-	grid_map[6]     = grid_spacing;
+	grid_map.resize(g2 * (map_z_dim + 1) + 10);
+	grid_map[0]     = 10;
+	grid_map[1]     = map_x_dim;
+	grid_map[2]     = map_y_dim;
+	grid_map[3]     = map_z_dim;
+	grid_map[4]     = map_x_center;
+	grid_map[5]     = map_y_center;
+	grid_map[6]     = map_z_center;
+	grid_map[7]     = grid_spacing;
 	
 	fp_num* density_data = densities.data();
 	fp_num* data_point;
@@ -547,14 +548,14 @@ inline std::vector<fp_num> read_map_to_grid(
 					density -= rho_avg;
 					density /= rho_std;
 				}
-				grid_map[x + y*g1 + z*g2 + 9] = density;
+				grid_map[x + y*g1 + z*g2 + 10] = density;
 				rho_min = std::min(density, rho_min);
 				rho_max = std::max(density, rho_max);
 			}
 		}
 	}
-	grid_map[7] = rho_min;
-	grid_map[8] = rho_max;
+	grid_map[8] = rho_min;
+	grid_map[9] = rho_max;
 	cout << "<- Finished interpolating grid map, took " << seconds_since(runtime)*1000.0 - file_reading_ms << " ms.\n\n";
 	
 	return grid_map;

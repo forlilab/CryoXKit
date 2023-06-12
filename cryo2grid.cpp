@@ -86,6 +86,7 @@ int main(int argc, const char* argv[])
 	int mod_type   = log_modifier;
 	bool argument_error = true;
 	std::vector<std::string> grid_files;
+	std::string map_ligand = "";
 	// Check for command line parameters
 	if(argc>2){ // yes, there are some -- parameter required are: (grid filename xor grid center x,y,z, grid x,y,z dimensions, grid spacing, and write type) as well as optionally modifier type
 		map_file        = argv[1]; // map filename
@@ -119,7 +120,16 @@ int main(int argc, const char* argv[])
 				if(grid_filter(grid.substr(0,ext))) grid_files.push_back(grid);
 				count++;
 			}
-			if(argc>count) mod_type = atoi(argv[count]);
+			if(argc>count){
+				grid = argv[count];
+				ext  = grid.find_last_of(".");
+				if((grid.substr(ext).compare(".pdb")==0) ||
+				   (grid.substr(ext).compare(".pdbqt")==0)){
+					map_ligand = grid;
+					count++;
+				} else mod_type = atoi(argv[count++]);
+				if(argc>count) mod_type = atoi(argv[count]);
+			}
 			argument_error = (grid_files.size() == 0);
 			if(argument_error){
 				cout << "ERROR: Could not find grid map files or only e, d, or H* maps were specified.\n";
@@ -131,20 +141,25 @@ int main(int argc, const char* argv[])
 		cout << "Syntax:\n";
 		cout << argv[0] << " mapfile center_x center_y center_z x_dim y_dim z_dim (spacing [" << grid_spacing << "]) (write [" << write_type << " = AD4 map]) (modifier fxn [" << mod_type << " = logistics])\n"; // argv[0] is program name
 		cout << "*or* for map modification (automatically excludes e, d, and H* maps):\n";
-		cout << argv[0] << " mapfile gridfile (spacing [" << grid_spacing << "]) (modifier fxn [" << mod_type << " = logistics])\n"; // argv[0] is program name
+		cout << argv[0] << " mapfile gridfile (map ligand) (modifier fxn [" << mod_type << " = logistics])\n"; // argv[0] is program name
 		exit(1);
 	}
 	
 	std::vector<GridMap> grid_maps;
 	if(grid_files.size()>0){
 		grid_maps    = read_grid_maps(grid_files);
-		X_dim        = (grid_maps[0])[0];
-		Y_dim        = (grid_maps[0])[1];
-		Z_dim        = (grid_maps[0])[2];
-		X_center     = (grid_maps[0])[3];
-		Y_center     = (grid_maps[0])[4];
-		Z_center     = (grid_maps[0])[5];
-		grid_spacing = (grid_maps[0])[6];
+		X_dim        = (grid_maps[0])[1];
+		Y_dim        = (grid_maps[0])[2];
+		Z_dim        = (grid_maps[0])[3];
+		X_center     = (grid_maps[0])[4];
+		Y_center     = (grid_maps[0])[5];
+		Z_center     = (grid_maps[0])[6];
+		grid_spacing = (grid_maps[0])[7];
+	}
+	
+	std::vector<PDBatom> map_lig_atoms;
+	if(map_ligand.size() > 4){ // i.e. than .pdb
+		map_lig_atoms = read_pdb_atoms(map_ligand);
 	}
 	
 	std::vector<fp_num> density = read_map_to_grid(
@@ -165,7 +180,7 @@ int main(int argc, const char* argv[])
 	                                               );
 	
 	if(grid_files.size()>0){
-		write_grid_maps(modified, grid_maps, grid_files, write_type);
+//		write_grid_maps(modified, grid_maps, grid_files, write_type);
 	} else{
 		write_grid(
 		           modified.data(),
