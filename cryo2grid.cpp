@@ -180,7 +180,7 @@ int main(int argc, const char* argv[])
 	                                               );
 	
 	if(grid_files.size()>0){
-//		write_grid_maps(modified, grid_maps, grid_files, write_type);
+		write_grid_maps(modified, grid_maps, grid_files, write_type);
 	} else{
 		write_grid(
 		           modified.data(),
