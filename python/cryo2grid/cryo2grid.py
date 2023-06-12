@@ -39,13 +39,13 @@ class Cryo2Grid:
         """
         self._grid_files   = filter_grid_files(gridmap_files)
         self._gridmaps     = read_grid_maps(self._grid_files);
-        self._map_x_dim    = (self._gridmaps[0])[0]
-        self._map_y_dim    = (self._gridmaps[0])[1]
-        self._map_z_dim    = (self._gridmaps[0])[2]
-        self._map_x_center = (self._gridmaps[0])[3]
-        self._map_y_center = (self._gridmaps[0])[4]
-        self._map_z_center = (self._gridmaps[0])[5]
-        self._grid_spacing = (self._gridmaps[0])[6]
+        self._map_x_dim    = (self._gridmaps[0])[1]
+        self._map_y_dim    = (self._gridmaps[0])[2]
+        self._map_z_dim    = (self._gridmaps[0])[3]
+        self._map_x_center = (self._gridmaps[0])[4]
+        self._map_y_center = (self._gridmaps[0])[5]
+        self._map_z_center = (self._gridmaps[0])[6]
+        self._grid_spacing = (self._gridmaps[0])[7]
         return self._gridmaps;
     
     def WriteGridMaps(self, density, write_type=1):
