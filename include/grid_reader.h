@@ -74,7 +74,13 @@ inline float map2float(const char* c)
 	return result;
 }
 
-inline GridMap read_grid_map(string filename, int &sizeX, int &sizeY, int &sizeZ)
+inline GridMap read_grid_map(
+                             string  filename,
+                             int    &sizeX,
+                             int    &sizeY,
+                             int    &sizeZ,
+                             string &receptor_file
+                            )
 {
 	unsigned long size;
 	ifstream file(filename.c_str(),ifstream::in);
@@ -92,7 +98,7 @@ inline GridMap read_grid_map(string filename, int &sizeX, int &sizeY, int &sizeZ
 		exit(1);
 	}
 	// Read content
-	string line;
+	string line, molecule;
 	int xnr, ynr, znr;
 	unsigned int found_all = 0;
 	fp_num center_x, center_y, center_z, spacing;
@@ -120,6 +126,17 @@ inline GridMap read_grid_map(string filename, int &sizeX, int &sizeY, int &sizeZ
 			}
 			found_all++;
 		}
+		if(line.find("MACROMOLECULE") == 0){
+			molecule = line.substr(14);
+			found_all++;
+			if(receptor_file.length()==0){
+				receptor_file = molecule;
+			}
+			if(molecule.compare(receptor_file) != 0){
+				cout << "ERROR: Receptor file between maps needs to be the same.\n";
+				exit(3);
+			}
+		}
 		if(line.find("CENTER") == 0){
 			sscanf(&line.c_str()[7], "%f %f %f", &center_x, &center_y, &center_z);
 			found_all++;
@@ -129,8 +146,8 @@ inline GridMap read_grid_map(string filename, int &sizeX, int &sizeY, int &sizeZ
 			found_all++;
 		}
 	} while (line.find("CENTER") == std::string::npos);
-	if(found_all != 3){
-		cout << "ERROR: Grid map file does not NELEMENTS, SPACING, and CENTER fields.";
+	if(found_all != 4){
+		cout << "ERROR: Grid map file does not contain NELEMENTS, MACROMOLECULE, SPACING, and CENTER fields.";
 		exit(7);
 	}
 	GridMap data;

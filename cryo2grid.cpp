@@ -19,8 +19,44 @@
 #include "include/map_modifier.h"
 #include "include/cryo2grid.h"
 #include "include/pdb_reader.h"
+#ifndef _WIN32
+// libgen.h contains basename() and dirname() from a fullpath name
+// Specific: to open correctly grid map field fiels and associated files
+// http://ask.systutorials.com/681/get-the-directory-path-and-file-name-from-absolute-path-linux
+#include <libgen.h>
+#endif
 
-std::vector<GridMap> read_grid_maps(std::vector<std::string> grid_files)
+bool has_absolute_path(const char* filename)
+{
+	#ifndef _WIN32
+	return (filename[0]=='/');
+	#else
+	char drive_tmp[_MAX_DRIVE];
+	char path_tmp[_MAX_DIR];
+	_splitpath(filename, drive_tmp, path_tmp, NULL, NULL);
+	return ((strlen(drive_tmp)>0) || (path_tmp[0]=='\\') || (path_tmp[0]=='/'));
+	#endif
+}
+
+std::string get_filepath(const char* filename)
+{
+	#ifndef _WIN32
+	char* ts1 = strdup(filename);
+	std::string result = dirname(ts1);
+	free(ts1);
+	return result;
+	#else
+	char drive_tmp[_MAX_DRIVE];
+	char path_tmp[_MAX_DIR];
+	_splitpath(filename, drive_tmp, path_tmp, NULL, NULL);
+	return drive_tmp + path_tmp;
+	#endif
+}
+
+std::vector<GridMap> read_grid_maps(
+                                    std::vector<std::string> grid_files,
+                                    std::string             &receptor_file
+                                   )
 {
 	std::vector<GridMap> grid_maps;
 	if(grid_files.size() > 0){
@@ -29,15 +65,22 @@ std::vector<GridMap> read_grid_maps(std::vector<std::string> grid_files)
 		int X_dim = 0;
 		int Y_dim = 0;
 		int Z_dim = 0;
+		receptor_file = "";
 		cout << "Reading grid map files:\n";
 		cout << "\t-> " << grid_files[0] << "\n";
-		grid_maps.push_back(read_grid_map(grid_files[0], X_dim, Y_dim, Z_dim));
+		grid_maps.push_back(read_grid_map(grid_files[0], X_dim, Y_dim, Z_dim, receptor_file));
 		grid_maps.resize(grid_files.size());
 		#pragma omp parallel for
 		for(unsigned int i=1; i<grid_files.size(); i++){
 			#pragma omp critical
 			cout << "\t-> " << grid_files[i] << "\n";
-			grid_maps[i] = read_grid_map(grid_files[i], X_dim, Y_dim, Z_dim);
+			grid_maps[i] = read_grid_map(grid_files[i], X_dim, Y_dim, Z_dim, receptor_file);
+		}
+		std::string grid_path = get_filepath(grid_files[0].c_str());
+		if(grid_path==".") grid_path="";
+		if(grid_path.size()>0){
+			grid_path  += "/";
+			if(!has_absolute_path(receptor_file.c_str())) receptor_file = grid_path + receptor_file;
 		}
 		cout << "<- Done, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
 	}
@@ -52,9 +95,9 @@ void write_grid_maps(
                     )
 {
 	if(grid_files.size() > 0){
-		int X_dim = (grid_maps[0])[0];
-		int Y_dim = (grid_maps[0])[1];
-		int Z_dim = (grid_maps[0])[2];
+		int X_dim = (grid_maps[0])[1];
+		int Y_dim = (grid_maps[0])[2];
+		int Z_dim = (grid_maps[0])[3];
 		#pragma omp parallel for
 		for(unsigned int i=0; i<grid_files.size(); i++){
 			unsigned int grid_points = (X_dim + 1) * (Y_dim + 1) * (Z_dim + 1) + 9;
@@ -146,8 +189,9 @@ int main(int argc, const char* argv[])
 	}
 	
 	std::vector<GridMap> grid_maps;
+	std::string receptor_file;
 	if(grid_files.size()>0){
-		grid_maps    = read_grid_maps(grid_files);
+		grid_maps    = read_grid_maps(grid_files, receptor_file);
 		X_dim        = (grid_maps[0])[1];
 		Y_dim        = (grid_maps[0])[2];
 		Z_dim        = (grid_maps[0])[3];
@@ -157,9 +201,16 @@ int main(int argc, const char* argv[])
 		grid_spacing = (grid_maps[0])[7];
 	}
 	
-	std::vector<PDBatom> map_lig_atoms;
 	if(map_ligand.size() > 4){ // i.e. than .pdb
+		std::vector<PDBatom> map_lig_atoms, grid_rec_atoms;
 		map_lig_atoms = read_pdb_atoms(map_ligand);
+		if(receptor_file.length() != 0){
+			grid_rec_atoms = read_pdb_atoms(receptor_file);
+		} else{
+			cout << "ERROR: No receptor specified in grid map files.\n";
+			exit(2);
+		}
+//		align_atoms(grid_rec_atoms, map_lig_atoms);
 	}
 	
 	std::vector<fp_num> density = read_map_to_grid(
@@ -180,7 +231,7 @@ int main(int argc, const char* argv[])
 	                                               );
 	
 	if(grid_files.size()>0){
-		write_grid_maps(modified, grid_maps, grid_files, write_type);
+//		write_grid_maps(modified, grid_maps, grid_files, write_type);
 	} else{
 		write_grid(
 		           modified.data(),
