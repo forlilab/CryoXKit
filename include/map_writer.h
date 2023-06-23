@@ -13,7 +13,9 @@
 #ifndef INCLUDED_MAP_WRITER
 #define INCLUDED_MAP_WRITER
 
-#include "config.h"
+#ifndef INCLUDED_CONFIG
+#include "Config.h"
+#endif
 
 #include <stdlib.h>
 #include <math.h>

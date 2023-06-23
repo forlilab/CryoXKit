@@ -13,8 +13,6 @@
 #ifndef INCLUDED_CRYO2GRID
 #define INCLUDED_CRYO2GRID
 
-#include "cryo2grid.h"
-
 #include <stdlib.h>
 #include <iostream>
 #include <vector>

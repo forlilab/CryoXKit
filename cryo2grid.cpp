@@ -12,7 +12,7 @@
 #ifdef PARALLELIZE
 #include <omp.h>
 #endif
-#include "include/config.h"
+#include "include/Config.h"
 #include "include/grid_reader.h"
 #include "include/map_reader.h"
 #include "include/map_writer.h"
@@ -130,13 +130,52 @@ int main(int argc, const char* argv[])
 	bool argument_error = true;
 	std::vector<std::string> grid_files;
 	std::string map_ligand = "";
+	std::string align_lig  = "";
 	// Check for command line parameters
 	if(argc>2){ // yes, there are some -- parameter required are: (grid filename xor grid center x,y,z, grid x,y,z dimensions, grid spacing, and write type) as well as optionally modifier type
 		map_file        = argv[1]; // map filename
 		string grid     = argv[2]; // grid filename XOR
 		std::size_t ext = grid.find_last_of(".");
-		bool gridfiles  = (grid.substr(ext).compare(".map")==0);
-		if(!gridfiles){
+		if(grid.substr(ext).compare(".map")==0)
+		{
+			if(grid_filter(grid.substr(0,ext))) grid_files.push_back(grid);
+			int count = 3;
+			while(count < argc){
+				grid = argv[count];
+				ext  = grid.find_last_of(".");
+				if(grid.substr(ext).compare(".map")!=0) break; // not a grid map file
+				if(grid_filter(grid.substr(0,ext))) grid_files.push_back(grid);
+				count++;
+			}
+			while(count < argc){
+				grid = argv[count];
+				ext  = grid.find_last_of(".");
+				if((grid.substr(ext).compare(".pdb")==0) ||
+				   (grid.substr(ext).compare(".pdbqt")==0)){
+					if(map_ligand.size()==0){
+						map_ligand = grid;
+					} else align_lig = grid;
+					count++;
+				} else mod_type = atoi(argv[count++]);
+			}
+			argument_error = (grid_files.size() == 0);
+			if(argument_error){
+				cout << "ERROR: Could not find grid map files or only e, d, or H* maps were specified.\n";
+				exit(1);
+			}
+		} else if((grid.substr(ext).compare(".pdb")==0) ||
+		          (grid.substr(ext).compare(".pdbqt")==0))
+		{
+			map_ligand = grid;
+			if(argc>3){
+				grid = argv[3];
+				ext  = grid.find_last_of(".");
+				if((grid.substr(ext).compare(".pdb")==0) ||
+				   (grid.substr(ext).compare(".pdbqt")==0))
+					align_lig = grid;
+			}
+			argument_error = (argc <= 3);
+		} else{
 			if(argc>7){
 				X_center = atof(argv[2]); // grid center
 				Y_center = atof(argv[3]);
@@ -153,31 +192,6 @@ int main(int argc, const char* argv[])
 				if(argc>10) mod_type = atoi(argv[10]); // modifier fxn type
 				argument_error = false;
 			} else argument_error = true;
-		} else{
-			if(grid_filter(grid.substr(0,ext))) grid_files.push_back(grid);
-			int count = 3;
-			while(count < argc){
-				grid = argv[count];
-				ext  = grid.find_last_of(".");
-				if(grid.substr(ext).compare(".map")!=0) break; // not a grid map file
-				if(grid_filter(grid.substr(0,ext))) grid_files.push_back(grid);
-				count++;
-			}
-			if(argc>count){
-				grid = argv[count];
-				ext  = grid.find_last_of(".");
-				if((grid.substr(ext).compare(".pdb")==0) ||
-				   (grid.substr(ext).compare(".pdbqt")==0)){
-					map_ligand = grid;
-					count++;
-				} else mod_type = atoi(argv[count++]);
-				if(argc>count) mod_type = atoi(argv[count]);
-			}
-			argument_error = (grid_files.size() == 0);
-			if(argument_error){
-				cout << "ERROR: Could not find grid map files or only e, d, or H* maps were specified.\n";
-				exit(1);
-			}
 		}
 	}
 	if(argument_error){
@@ -189,9 +203,8 @@ int main(int argc, const char* argv[])
 	}
 	
 	std::vector<GridMap> grid_maps;
-	std::string receptor_file;
 	if(grid_files.size()>0){
-		grid_maps    = read_grid_maps(grid_files, receptor_file);
+		grid_maps    = read_grid_maps(grid_files, align_lig);
 		X_dim        = (grid_maps[0])[1];
 		Y_dim        = (grid_maps[0])[2];
 		Z_dim        = (grid_maps[0])[3];
@@ -204,13 +217,25 @@ int main(int argc, const char* argv[])
 	if(map_ligand.size() > 4){ // i.e. than .pdb
 		std::vector<PDBatom> map_lig_atoms, grid_rec_atoms;
 		map_lig_atoms = read_pdb_atoms(map_ligand);
-		if(receptor_file.length() != 0){
-			grid_rec_atoms = read_pdb_atoms(receptor_file);
+		if(align_lig.length() != 0){
+			grid_rec_atoms = read_pdb_atoms(align_lig);
 		} else{
 			cout << "ERROR: No receptor specified in grid map files.\n";
 			exit(2);
 		}
-//		align_atoms(grid_rec_atoms, map_lig_atoms);
+		Vec3<fp_num> map_trans;
+		Mat33<fp_num> map_rot = align_atoms(
+		                                    map_lig_atoms,
+		                                    grid_rec_atoms,
+		                                    X_dim,
+		                                    Y_dim,
+		                                    Z_dim,
+		                                    X_center,
+		                                    Y_center,
+		                                    Z_center,
+		                                    grid_spacing,
+		                                    map_trans
+		                                   );
 	}
 	
 	std::vector<fp_num> density = read_map_to_grid(

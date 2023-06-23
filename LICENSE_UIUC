@@ -1,0 +1,75 @@
+Important Notice for FIGSiM developers and end-users:
+
+i) If applicable, please cite our publications. Here is a starting point:
+  + the reaction field/ellipsoid dielectric:
+      Lewis E. Johnson, Robin Barnes, Thomas W. Draxler, Bruce E. Eichinger,
+      and Bruce H. Robinson: "Dielectric Constants of Simple Liquids:
+      Stockmayer and Ellipsoidal Fluids",
+      J. Phys. Chem. B 114, 25, 8431-8440 (2010)
+  + the Adiabatic Volume Adjustment (AVA) method:
+      Andreas F. Tillack, Lewis E. Johnson, Meghana Rawal, Larry R. Dalton,
+      and Bruce H. Robinson: "Modeling Chromophore Order: A Guide For
+      Improving EO Performance", Symposium II/JJ/KK - Materials, Processe and
+      Devices for Nanophotonics, Nonlinear Optics and Resonant Optics;
+      MRS Online Proceedings Library, Vol. 1698, Cambridge University Press (2014)
+  + the Ellipsoids/Level-of-Detail (LoD) method:
+      Andreas F. Tillack, Lewis E. Johnson, Bruce E. Eichinger, and
+      Bruce H. Robinson: "Systematic Generation of Anisotropic Coarse-Grained
+      Lennard-Jones Potentials and Their Application to Ordered Soft Matter",
+      J. Chem. Theory Comput. 12, 9, 4362-4374 (2016)
+  + further relevant papers may include:
+      R. D. Nielsen, H. L. Rommel, and B. H. Robinson: "Simulation of the
+      Loading Parameter in Organic Nonlinear Optical Materials",
+      J. Phys. Chem. B, 108, 25, 8659-8667 (2004)
+      Harrison L. Rommel and Bruce H. Robinsonm: "Orientation of Electro-optic
+      Chromophores under Poling Conditions: A Spheroidal Model",
+      J. Phys. Chem. C, 111, 50, 18765-18777 (2007)
+  + Dissertations of the developers listed below are publically available
+
+ii) The original programs developed by Andreas F. Tillack, Lewis E. Johnson,
+Bruce H. Robinson and their collaborators are distributed under
+UIUC/NCSA Open Source License (below).
+
+iii) Some packages/features included are under different open source license
+and are marked appropriately in their code files.
+
+-------------
+University of Illinois/NCSA
+Open Source License
+
+Copyright (c) 2016, University of Washington. All rights reserved.
+
+Developed by:
+  Andreas F. Tillack and Lewis E. Johnson, based on prior simulation code by
+    Lewis E. Johnson and Robin Barnes, based on prior simulation code by
+      Bruce H. Robinson, Harry L. Rommel, and Robert D. Nielsen
+  Robinson Group, Department of Chemistry
+  University of Washington
+  http://courses.washington.edu/bhrchem/
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+with the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is furnished
+to do so, subject to the following conditions:
+
+  * Redistributions of source code must retain the above copyright notice, this
+    list of conditions and the following disclaimers.
+  * Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimers in the documentation
+    and/or other materials provided with the distribution.
+  * Neither the names of the Robinson Group, University of Washington, nor the
+    names of its contributors may be used to endorse or promote products derived
+    from this Software without specific prior written permission.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS WITH
+THE SOFTWARE.
+
+For more details on the University of Illinois/NCSA Open Source License,
+see: http://otm.illinois.edu/disclose-protect/illinois-open-source-license

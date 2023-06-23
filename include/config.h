@@ -77,7 +77,13 @@ inline void start_timer(T& time_start)
 #endif
 }
 
+//Define constants here
 #define PI      3.14159265359f
+#define pi2     6.28318530718f
+#define invpi   0.318309886184f
+#define invpi2  0.159154943092f
+#define pi_half 1.57079632679f
+#define EPS 1.2e-7f
 
 #endif
 
