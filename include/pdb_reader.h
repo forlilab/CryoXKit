@@ -158,8 +158,8 @@ Mat33<fp_num> align_atoms(
 	}
 	translate = center - map_center;
 	cout << "\t-> Translation vector: (" << translate.V3Str(',') << ")\n";
-	Mat33<double> map_S, grid_S;
-	map_S.M3Zeros(); grid_S.M3Zeros();
+	Mat33<double> B, BTB, BBT, U, V, M;
+	B.M3Zeros();
 	// Calculate gyration tensors for both
 	for(unsigned int i=0; i<grid_ids.size(); i++){
 		// align to respective centers
@@ -169,54 +169,41 @@ Mat33<fp_num> align_atoms(
 		map_atoms[map_match[i]].x -= map_center.vec[0];
 		map_atoms[map_match[i]].y -= map_center.vec[1];
 		map_atoms[map_match[i]].z -= map_center.vec[2];
-	}
-	double norm = 1.0 / grid_ids.size();
-	norm *= norm;
-	for(unsigned int i=0; i<grid_ids.size(); i++){
-		for(unsigned int j=i+1; j<grid_ids.size(); j++){
-			// S_mn = 1/N^2 * sum_(i>j) (r_m(i) - r_m(j)) * (r_n(i) - r_n(j))
-			grid_S.mat[0][0] += norm * (grid_atoms[grid_ids[i]].x - grid_atoms[grid_ids[j]].x) * (grid_atoms[grid_ids[i]].x - grid_atoms[grid_ids[j]].x);
-			grid_S.mat[0][1] += norm * (grid_atoms[grid_ids[i]].x - grid_atoms[grid_ids[j]].x) * (grid_atoms[grid_ids[i]].y - grid_atoms[grid_ids[j]].y);
-			grid_S.mat[0][2] += norm * (grid_atoms[grid_ids[i]].x - grid_atoms[grid_ids[j]].x) * (grid_atoms[grid_ids[i]].z - grid_atoms[grid_ids[j]].z);
-			grid_S.mat[1][1] += norm * (grid_atoms[grid_ids[i]].y - grid_atoms[grid_ids[j]].y) * (grid_atoms[grid_ids[i]].y - grid_atoms[grid_ids[j]].y);
-			grid_S.mat[1][2] += norm * (grid_atoms[grid_ids[i]].y - grid_atoms[grid_ids[j]].y) * (grid_atoms[grid_ids[i]].z - grid_atoms[grid_ids[j]].z);
-			grid_S.mat[2][2] += norm * (grid_atoms[grid_ids[i]].z - grid_atoms[grid_ids[j]].z) * (grid_atoms[grid_ids[i]].z - grid_atoms[grid_ids[j]].z);
+		// B = 1/N sum r_grid * r_map^T (outer product aka matrix multiplication)
+		B.mat[0][0] += grid_atoms[grid_ids[i]].x * map_atoms[map_match[i]].x;
+		B.mat[0][1] += grid_atoms[grid_ids[i]].x * map_atoms[map_match[i]].y;
+		B.mat[0][2] += grid_atoms[grid_ids[i]].x * map_atoms[map_match[i]].z;
 		
-			map_S.mat[0][0] += norm * (map_atoms[map_match[i]].x - map_atoms[map_match[j]].x) * (map_atoms[map_match[i]].x - map_atoms[map_match[j]].x);
-			map_S.mat[0][1] += norm * (map_atoms[map_match[i]].x - map_atoms[map_match[j]].x) * (map_atoms[map_match[i]].y - map_atoms[map_match[j]].y);
-			map_S.mat[0][2] += norm * (map_atoms[map_match[i]].x - map_atoms[map_match[j]].x) * (map_atoms[map_match[i]].z - map_atoms[map_match[j]].z);
-			map_S.mat[1][1] += norm * (map_atoms[map_match[i]].y - map_atoms[map_match[j]].y) * (map_atoms[map_match[i]].y - map_atoms[map_match[j]].y);
-			map_S.mat[1][2] += norm * (map_atoms[map_match[i]].y - map_atoms[map_match[j]].y) * (map_atoms[map_match[i]].z - map_atoms[map_match[j]].z);
-			map_S.mat[2][2] += norm * (map_atoms[map_match[i]].z - map_atoms[map_match[j]].z) * (map_atoms[map_match[i]].z - map_atoms[map_match[j]].z);
-		}
+		B.mat[1][0] += grid_atoms[grid_ids[i]].y * map_atoms[map_match[i]].x;
+		B.mat[1][1] += grid_atoms[grid_ids[i]].y * map_atoms[map_match[i]].y;
+		B.mat[1][2] += grid_atoms[grid_ids[i]].y * map_atoms[map_match[i]].z;
+		
+		B.mat[2][0] += grid_atoms[grid_ids[i]].z * map_atoms[map_match[i]].x;
+		B.mat[2][1] += grid_atoms[grid_ids[i]].z * map_atoms[map_match[i]].y;
+		B.mat[2][2] += grid_atoms[grid_ids[i]].z * map_atoms[map_match[i]].z;
 	}
-	grid_S.mat[1][0] = grid_S.mat[0][1];
-	grid_S.mat[2][0] = grid_S.mat[0][2];
-	grid_S.mat[2][1] = grid_S.mat[1][2];
-	CVec3<double> cew = grid_S.Eigenvalues();
-	if(cew.Im()*cew.Im()>EPS){ // gyration tensor eigenvalues need to be real
-		cout << "ERROR: Grid gyration tensor eigenvalues need to be real.\n";
+	B /= grid_ids.size();
+	
+	BBT = B * B.M3Transpose();
+	CVec3<double> cew = BBT.Eigenvalues();
+	if(cew.Im()*cew.Im()>EPS){ // shouldn't happen
+		cout << "ERROR: BB^T eigenvalues need to be real.\n";
 		exit(2);
 	}
 	Vec3<double> ew = cew.Re();
-	Mat33<double> grid_rot = RotFromEigenvectors(grid_S.Eigenvectors(ew));
+	U = BBT.Eigenvectors(ew, true); // make sure to normalize eigenvalues
 
-	map_S.mat[1][0] = map_S.mat[0][1];
-	map_S.mat[2][0] = map_S.mat[0][2];
-	map_S.mat[2][1] = map_S.mat[1][2];
-	cew = map_S.Eigenvalues();
-	if(cew.Im()*cew.Im()>EPS){ // gyration tensor eigenvalues need to be real
-		cout << "ERROR: Map gyration tensor eigenvalues need to be real.\n";
+	BTB = B.M3Transpose() * B;
+	cew = BTB.Eigenvalues();
+	if(cew.Im()*cew.Im()>EPS){ // shouldn't happen
+		cout << "ERROR: B^TB eigenvalues need to be real.\n";
 		exit(3);
 	}
 	ew = cew.Re();
-	Mat33<double> map_rot = RotFromEigenvectors(map_S.Eigenvectors(ew));
-//	cout << "grid:\n" << grid_rot.M3Str() << "\n";
-//	cout << "map:\n" << map_rot.M3Str() << "\n";
-	// X * map_rot = grid_rot
-	// X = grid_rot * map_rot^T (inverse is transpose for rotation matrices)
+	V = BTB.Eigenvectors(ew, true); // make sure to normalize eigenvalues
+	M.mat[2][2] = U.M3Det() * V.M3Det();
 	Mat33<fp_num> result;
-	result = grid_rot * map_rot.M3Transpose();
+	result = U * (M * V.M3Transpose());
 	cout << "\t-> Rotation matrix:\n" << result.M3Str() << "\n";
 	// calculate RMSD
 	fp_num rmsd = 0;
