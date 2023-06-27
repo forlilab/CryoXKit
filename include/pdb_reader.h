@@ -96,42 +96,140 @@ Mat33<fp_num> align_atoms(
 	}
 	center /= grid_ids.size();
 	// now find atom closest to center
-	location.vec[0] = grid_atoms[grid_ids[0]].x - center.vec[0];
-	location.vec[1] = grid_atoms[grid_ids[0]].y - center.vec[1];
-	location.vec[2] = grid_atoms[grid_ids[0]].z - center.vec[2];
+	location.vec[0] = grid_atoms[grid_ids[0]].x;
+	location.vec[1] = grid_atoms[grid_ids[0]].y;
+	location.vec[2] = grid_atoms[grid_ids[0]].z;
+	// while we're at it, compile a list of grid residue centers (and corresponding ids and how many atoms)
+	std::vector<unsigned int> grid_res_start;
+	grid_res_start.push_back(0);
+	std::vector<unsigned int> grid_res_idx;
+	grid_res_idx.push_back(0);
+	std::vector<unsigned int> grid_res_num;
+	grid_res_num.push_back(1);
+	std::vector<Vec3<fp_num>> grid_res_center;
+	grid_res_center.push_back(location);
+	location -= center;
 	fp_num closest_dist2 = location * location;
+	unsigned int curr_resid = grid_atoms[grid_ids[0]].res_id;
 	int closest = 0;
 	for(unsigned int i=1; i<grid_ids.size(); i++){
-		location.vec[0] = grid_atoms[grid_ids[i]].x - center.vec[0];
-		location.vec[1] = grid_atoms[grid_ids[i]].y - center.vec[1];
-		location.vec[2] = grid_atoms[grid_ids[i]].z - center.vec[2];
+		location.vec[0] = grid_atoms[grid_ids[i]].x;
+		location.vec[1] = grid_atoms[grid_ids[i]].y;
+		location.vec[2] = grid_atoms[grid_ids[i]].z;
+		if(curr_resid != grid_atoms[grid_ids[i]].res_id){
+			grid_res_start.push_back(i);
+			curr_resid = grid_atoms[grid_ids[i]].res_id;
+			grid_res_center.push_back(location);
+			grid_res_num.push_back(1);
+			grid_res_idx.push_back(grid_res_num.size()-1);
+		} else{
+			grid_res_idx.push_back(grid_res_idx.back());
+			grid_res_center[grid_res_idx.back()] += location;
+			grid_res_num[grid_res_idx.back()]++;
+		}
+		location -= center;
 		fp_num d2 = location*location;
 		if(d2 < closest_dist2){
 			closest_dist2 = d2;
 			closest = i;
 		}
 	}
+	grid_res_start.push_back(grid_ids.size());
+	for(unsigned int i=0; i<grid_res_center.size(); i++)
+		grid_res_center[i] /= grid_res_num[i];
+	std::vector<fp_num> grid_res_center_d2;
+	std::vector<int> assignment;
 	// match atoms from grid_ids to map atoms
-	std::vector<unsigned int> map_match;
-	for(int i=0; i<(int)grid_ids.size(); i++){
-		bool found = false;
-		for(unsigned int j=0; j<map_atoms.size(); j++){
-			if((map_atoms[j].res_id == grid_atoms[grid_ids[i]].res_id) &&
-			   (map_atoms[j].chain_id[0] == grid_atoms[grid_ids[i]].chain_id[0]) &&
-			   (strcmp(map_atoms[j].res_name, grid_atoms[grid_ids[i]].res_name) == 0) &&
-			   (strcmp(map_atoms[j].name, grid_atoms[grid_ids[i]].name) == 0))
-			{
-				map_match.push_back(j);
-				found = true;
-				break;
+	std::vector<int> map_match;
+	for(unsigned int i=0; i<grid_ids.size(); i++){
+		location.vec[0] = grid_atoms[grid_ids[i]].x;
+		location.vec[1] = grid_atoms[grid_ids[i]].y;
+		location.vec[2] = grid_atoms[grid_ids[i]].z;
+		location       -= grid_res_center[grid_res_idx[i]];
+		grid_res_center_d2.push_back(location * location); // <- distance^2 of current grid atom from its residue's center
+		assignment.push_back(0);
+		map_match.push_back(-1);
+	}
+	std::vector<unsigned int> grid_type;
+	std::vector<unsigned int> candidates;
+	std::vector<fp_num> cross_dist2;
+	char* curr_atom_type;
+	char curr_chain_id;
+	unsigned int curr_res_id;
+	for(unsigned int r=0; r<grid_res_num.size(); r++){ // go over all residues in grid
+		unsigned int i = grid_res_start[r];
+		while(i < grid_res_start[r+1]){
+			grid_type.clear();
+			grid_type.push_back(i);
+			curr_atom_type = grid_atoms[grid_ids[i]].atom_type;
+			curr_chain_id  = grid_atoms[grid_ids[i]].chain_id[0];
+			curr_res_id    = grid_atoms[grid_ids[i]].res_id;
+			int next_id = -1;
+			while(++i < grid_res_start[r+1]){
+				if(assignment[i] == 0){
+					if(strcmp(curr_atom_type, grid_atoms[grid_ids[i]].atom_type) == 0){
+						grid_type.push_back(i);
+						assignment[i] = 1;
+					} else next_id = (next_id < 0) ? i : next_id;
+				}
 			}
-		}
-		if(!found){
-			grid_ids.erase(grid_ids.begin() + i);
-			if(closest==i)
-				closest = -1;
-			else if(closest>i) closest--;
-			i--;
+			i = (next_id < 0) ? grid_res_start[r+1] : next_id;
+			// calculate matching map residue's center on the fly
+			Vec3<fp_num> map_res_center(fp_num(0));
+			unsigned int map_res_count = 0;
+			// container for atoms with the same name is the one we're looking for (should mostly only be one ... but you never know)
+			candidates.clear();
+			for(unsigned int j=0; j<map_atoms.size(); j++){
+				if((map_atoms[j].res_id      == curr_res_id) &&
+				   (map_atoms[j].chain_id[0] == curr_chain_id)){
+					map_res_center.vec[0] += map_atoms[j].x;
+					map_res_center.vec[1] += map_atoms[j].y;
+					map_res_center.vec[2] += map_atoms[j].z;
+					map_res_count++;
+					if(strcmp(map_atoms[j].atom_type, curr_atom_type) == 0){
+						candidates.push_back(j);
+					}
+				}
+			}
+			if(candidates.size() == 0){ // shouldn't happen
+				cout << "ERROR: Could not find matching " << curr_atom_type << " map receptor atoms for grid residue #" << curr_res_id << "\n";
+				exit(4);
+			} else{ // at least one map candidate found
+				map_res_center /= map_res_count;
+				cross_dist2.clear();
+				if((curr_res_id   == grid_atoms[grid_ids[closest]].res_id) &&
+				   (curr_chain_id == grid_atoms[grid_ids[closest]].chain_id[0]))
+					cout << "---\n";
+				for(unsigned int k=0; k<candidates.size(); k++){
+					int closest_id = -1;
+					fp_num closest_d2 = 1e8;
+					for(unsigned int l=0; l<grid_type.size(); l++){
+						location.vec[0] = map_atoms[candidates[k]].x;
+						location.vec[1] = map_atoms[candidates[k]].y;
+						location.vec[2] = map_atoms[candidates[k]].z;
+						location -= map_res_center;
+						fp_num d2 = fabs((location * location) - grid_res_center_d2[grid_type[l]]);
+						if(d2 < closest_d2){
+							closest_d2 = d2;
+							closest_id = l;
+						}
+					}
+					if(closest>=0){ // match found
+						map_match[grid_type[closest_id]] = candidates[k];
+						if((curr_res_id   == grid_atoms[grid_ids[closest]].res_id) &&
+						   (curr_chain_id == grid_atoms[grid_ids[closest]].chain_id[0]))
+							cout << grid_ids[grid_type[closest_id]]+1 << " -> " << map_match[grid_type[closest_id]]+1 << "\n";
+						grid_type.erase(grid_type.begin() + closest_id);
+						if((grid_type.size()==0) && (k+1<candidates.size())){ // not all map atoms are accounted for
+							cout << "WARNING: Map atom(s) ";
+							while(++k < candidates.size()){
+								cout << "#" << candidates[k]+1 << ((k+1<candidates.size())?", ":" ");
+							}
+							cout << "have no corresponding grid atom.\n";
+						}
+					}
+				}
+			}
 		}
 	}
 	Vec3<fp_num> map_center;
@@ -141,8 +239,7 @@ Mat33<fp_num> align_atoms(
 		unsigned int count = 0;
 		for(unsigned int i=0; i<grid_ids.size(); i++){
 			if((grid_atoms[grid_ids[i]].res_id == grid_atoms[grid_ids[closest]].res_id) &&
-			   (grid_atoms[grid_ids[i]].chain_id[0] == grid_atoms[grid_ids[closest]].chain_id[0]) &&
-			   (strcmp(grid_atoms[grid_ids[i]].res_name, grid_atoms[grid_ids[closest]].res_name) == 0))
+			   (grid_atoms[grid_ids[i]].chain_id[0] == grid_atoms[grid_ids[closest]].chain_id[0]))
 			{
 				center.vec[0] += grid_atoms[grid_ids[i]].x; center.vec[1] += grid_atoms[grid_ids[i]].y; center.vec[2] += grid_atoms[grid_ids[i]].z;
 				map_center.vec[0] += map_atoms[map_match[i]].x; map_center.vec[1] += map_atoms[map_match[i]].y; map_center.vec[2] += map_atoms[map_match[i]].z;
@@ -153,7 +250,7 @@ Mat33<fp_num> align_atoms(
 		map_center /= count;
 	} else{
 		// new center to align to based on closest atom to geometric center
-		center.vec[0] = grid_atoms[grid_ids[closest]].x; center.vec[1] = grid_atoms[grid_ids[closest]].y; center.vec[2] = grid_atoms[grid_ids[closest]].z;
+		center.vec[0]     = grid_atoms[grid_ids[closest]].x; center.vec[1]     = grid_atoms[grid_ids[closest]].y; center.vec[2]     = grid_atoms[grid_ids[closest]].z;
 		map_center.vec[0] = map_atoms[map_match[closest]].x; map_center.vec[1] = map_atoms[map_match[closest]].y; map_center.vec[2] = map_atoms[map_match[closest]].z;
 	}
 	translate = center - map_center;
@@ -162,6 +259,7 @@ Mat33<fp_num> align_atoms(
 	B.M3Zeros();
 	// Calculate gyration tensors for both
 	for(unsigned int i=0; i<grid_ids.size(); i++){
+		if(map_match[i]>=0){
 		// align to respective centers
 		grid_atoms[grid_ids[i]].x -= center.vec[0];
 		grid_atoms[grid_ids[i]].y -= center.vec[1];
@@ -181,6 +279,7 @@ Mat33<fp_num> align_atoms(
 		B.mat[2][0] += grid_atoms[grid_ids[i]].z * map_atoms[map_match[i]].x;
 		B.mat[2][1] += grid_atoms[grid_ids[i]].z * map_atoms[map_match[i]].y;
 		B.mat[2][2] += grid_atoms[grid_ids[i]].z * map_atoms[map_match[i]].z;
+		}
 	}
 	B /= grid_ids.size();
 	
@@ -208,14 +307,18 @@ Mat33<fp_num> align_atoms(
 	// calculate RMSD
 	fp_num rmsd = 0;
 	for(unsigned int i=0; i<grid_ids.size(); i++){
-		location.vec[0] = map_atoms[map_match[i]].x;
-		location.vec[1] = map_atoms[map_match[i]].y;
-		location.vec[2] = map_atoms[map_match[i]].z;
-		location = result * location;
-		location.vec[0] -= grid_atoms[grid_ids[i]].x;
-		location.vec[1] -= grid_atoms[grid_ids[i]].y;
-		location.vec[2] -= grid_atoms[grid_ids[i]].z;
-		rmsd += (location * location);
+		if(map_match[i]>=0){
+			location.vec[0] = map_atoms[map_match[i]].x;
+			location.vec[1] = map_atoms[map_match[i]].y;
+			location.vec[2] = map_atoms[map_match[i]].z;
+			location = result * location;
+			center.vec[0] = grid_atoms[grid_ids[i]].x;
+			center.vec[1] = grid_atoms[grid_ids[i]].y;
+			center.vec[2] = grid_atoms[grid_ids[i]].z;
+			cout << "#" << grid_ids[i]+1 << " (" << center.V3Str(' ',3) << ") -> #" << map_match[i]+1 << " (" << location.V3Str(' ',3) << ")\n";
+			location -= center;
+			rmsd += (location * location);
+		}
 	}
 	cout << "\t-> RMSD after alignment (" << grid_ids.size() << " atoms): " << sqrt(rmsd/grid_ids.size()) << " A\n";
 	cout << "<- Finished alignment, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
