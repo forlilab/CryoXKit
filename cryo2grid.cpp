@@ -214,6 +214,10 @@ int main(int argc, const char* argv[])
 		grid_spacing = (grid_maps[0])[7];
 	}
 	
+	Vec3<fp_num> map_center(fp_num(0));
+	Vec3<fp_num> grid_center(fp_num(0));
+	Mat33<fp_num> map_rot;
+	map_rot.M3Eye();
 	if(map_ligand.size() > 4){ // i.e. than .pdb
 		std::vector<PDBatom> map_lig_atoms, grid_rec_atoms;
 		map_lig_atoms = read_pdb_atoms(map_ligand);
@@ -223,20 +227,19 @@ int main(int argc, const char* argv[])
 			cout << "ERROR: No receptor specified in grid map files.\n";
 			exit(2);
 		}
-		Vec3<fp_num> map_center, grid_center;
-		Mat33<fp_num> map_rot = align_atoms(
-		                                    map_lig_atoms,
-		                                    grid_rec_atoms,
-		                                    X_dim,
-		                                    Y_dim,
-		                                    Z_dim,
-		                                    X_center,
-		                                    Y_center,
-		                                    Z_center,
-		                                    grid_spacing,
-		                                    map_center,
-		                                    grid_center
-		                                   );
+		map_rot = align_atoms(
+		                      map_lig_atoms,
+		                      grid_rec_atoms,
+		                      X_dim,
+		                      Y_dim,
+		                      Z_dim,
+		                      X_center,
+		                      Y_center,
+		                      Z_center,
+		                      grid_spacing,
+		                      map_center,
+		                      grid_center
+		                     );
 	}
 	
 	std::vector<fp_num> density = read_map_to_grid(

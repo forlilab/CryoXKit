@@ -119,11 +119,11 @@ Mat33<fp_num> align_atoms(
 	grid_res_num.push_back(1);
 	std::vector<Vec3<fp_num>> grid_res_center;
 	grid_res_center.push_back(location);
-	location -= center;
+	location            -= center;
 	fp_num closest_dist2 = location * location;
-	curr_resid = grid_atoms[grid_ids[0]].res_id;
-	char curr_chain_id = grid_atoms[grid_ids[0]].chain_id;
-	int closest = 0;
+	curr_resid           = grid_atoms[grid_ids[0]].res_id;
+	char curr_chain_id   = grid_atoms[grid_ids[0]].chain_id;
+	unsigned int closest = 0;
 	for(unsigned int i=1; i<grid_ids.size(); i++){
 		location.vec[0] = grid_atoms[grid_ids[i]].x;
 		location.vec[1] = grid_atoms[grid_ids[i]].y;
@@ -226,7 +226,7 @@ Mat33<fp_num> align_atoms(
 							closest_id = l;
 						}
 					}
-					if(closest>=0){ // match found
+					if(closest_id >= 0){ // match found
 						map_match[grid_type[closest_id]] = candidates[k];
 //						cout << grid_ids[grid_type[closest_id]]+1 << " -> " << candidates[k]+1 << "\n";
 						grid_type.erase(grid_type.begin() + closest_id);
@@ -242,27 +242,21 @@ Mat33<fp_num> align_atoms(
 			}
 		}
 	}
-	if(closest < 0){ // fallback is to you use residue center (assumption is that it won't be different enough to add enough error
-		center.vec[0] = 0; center.vec[1] = 0; center.vec[2] = 0;
-		map_center.vec[0] = 0; map_center.vec[1] = 0; map_center.vec[2] = 0;
-		unsigned int count = 0;
-		for(unsigned int i=0; i<grid_ids.size(); i++){
-			if((grid_atoms[grid_ids[i]].res_id   == grid_atoms[grid_ids[closest]].res_id) &&
-			   (grid_atoms[grid_ids[i]].chain_id == grid_atoms[grid_ids[closest]].chain_id))
-			{
-				center.vec[0] += grid_atoms[grid_ids[i]].x; center.vec[1] += grid_atoms[grid_ids[i]].y; center.vec[2] += grid_atoms[grid_ids[i]].z;
-				map_center.vec[0] += map_atoms[map_match[i]].x; map_center.vec[1] += map_atoms[map_match[i]].y; map_center.vec[2] += map_atoms[map_match[i]].z;
-				count++;
-			}
+	// align map to residue center closest to geometric center
+	grid_center.vec[0] = 0; grid_center.vec[1] = 0; grid_center.vec[2] = 0;
+	map_center.vec[0]  = 0; map_center.vec[1]  = 0; map_center.vec[2]  = 0;
+	unsigned int count = 0;
+	for(unsigned int i=0; i<grid_ids.size(); i++){
+		if((grid_atoms[grid_ids[i]].res_id   == grid_atoms[grid_ids[closest]].res_id) &&
+		   (grid_atoms[grid_ids[i]].chain_id == grid_atoms[grid_ids[closest]].chain_id))
+		{
+			grid_center.vec[0] += grid_atoms[grid_ids[i]].x; grid_center.vec[1] += grid_atoms[grid_ids[i]].y; grid_center.vec[2] += grid_atoms[grid_ids[i]].z;
+			map_center.vec[0]  += map_atoms[map_match[i]].x; map_center.vec[1]  += map_atoms[map_match[i]].y; map_center.vec[2]  += map_atoms[map_match[i]].z;
+			count++;
 		}
-		center /= count;
-		grid_center = center;
-		map_center /= count;
-	} else{
-		// new center to align to based on closest atom to geometric center
-		grid_center.vec[0] = grid_atoms[grid_ids[closest]].x; grid_center.vec[1] = grid_atoms[grid_ids[closest]].y; grid_center.vec[2] = grid_atoms[grid_ids[closest]].z;
-		map_center.vec[0]  = map_atoms[map_match[closest]].x; map_center.vec[1]  = map_atoms[map_match[closest]].y; map_center.vec[2]  = map_atoms[map_match[closest]].z;
 	}
+	grid_center /= count;
+	map_center  /= count;
 	cout << "\t-> Grid center: (" << grid_center.V3Str(',',4) << ")\n";
 	cout << "\t-> Map center:  (" << map_center.V3Str(',',4) << ")\n";
 	Mat33<double> B, BTB, BBT, U, V, M;
@@ -327,10 +321,10 @@ Mat33<fp_num> align_atoms(
 		center.vec[0] = grid_atoms[grid_ids[i]].x;
 		center.vec[1] = grid_atoms[grid_ids[i]].y;
 		center.vec[2] = grid_atoms[grid_ids[i]].z;
-		cout.precision(3);
+/*		cout.precision(3);
 		cout.fill(' ');
 		cout.setf(ios::fixed, ios::floatfield);
-/*		cout << "ATOM  ";
+		cout << "ATOM  ";
 		cout << std::setw(5) << i+1 << "  ";
 		std::string str = map_atoms[map_match[i]].name;
 		str.resize(4,' ');
@@ -342,6 +336,7 @@ Mat33<fp_num> align_atoms(
 		location -= center;
 		rmsd += (location * location);
 	}
+	cout.precision(3);
 	cout << "\t-> RMSD after alignment (" << grid_ids.size() << " atoms): " << sqrt(rmsd/grid_ids.size()) << " A\n";
 	cout << "<- Finished alignment, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
 	return result;
