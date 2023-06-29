@@ -223,7 +223,7 @@ int main(int argc, const char* argv[])
 			cout << "ERROR: No receptor specified in grid map files.\n";
 			exit(2);
 		}
-		Vec3<fp_num> map_trans;
+		Vec3<fp_num> map_center, grid_center;
 		Mat33<fp_num> map_rot = align_atoms(
 		                                    map_lig_atoms,
 		                                    grid_rec_atoms,
@@ -234,7 +234,8 @@ int main(int argc, const char* argv[])
 		                                    Y_center,
 		                                    Z_center,
 		                                    grid_spacing,
-		                                    map_trans
+		                                    map_center,
+		                                    grid_center
 		                                   );
 	}
 	
@@ -256,7 +257,7 @@ int main(int argc, const char* argv[])
 	                                               );
 	
 	if(grid_files.size()>0){
-		write_grid_maps(modified, grid_maps, grid_files, write_type);
+//		write_grid_maps(modified, grid_maps, grid_files, write_type);
 	} else{
 		write_grid(
 		           modified.data(),

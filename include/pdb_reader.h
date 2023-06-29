@@ -67,12 +67,13 @@ Mat33<fp_num> align_atoms(
                           fp_num                map_y_center,
                           fp_num                map_z_center,
                           fp_num                grid_spacing,
-                          Vec3<fp_num>         &translate
+                          Vec3<fp_num>         &map_center,
+                          Vec3<fp_num>         &grid_center
                          )
 {
 	timeval runtime;
 	start_timer(runtime);
-	cout << "Aligning map receptor to receptor ...\n";
+	cout << "Aligning map receptor to grid receptor\n";
 	bool use_grid_box = (map_x_dim > 0) && (map_y_dim > 0) && (map_z_dim > 0);
 	Vec3<fp_num> grid_dims;
 	grid_dims.vec[0] = map_x_dim * grid_spacing; grid_dims.vec[1] = map_y_dim * grid_spacing; grid_dims.vec[2] = map_z_dim * grid_spacing;
@@ -241,7 +242,6 @@ Mat33<fp_num> align_atoms(
 			}
 		}
 	}
-	Vec3<fp_num> map_center;
 	if(closest < 0){ // fallback is to you use residue center (assumption is that it won't be different enough to add enough error
 		center.vec[0] = 0; center.vec[1] = 0; center.vec[2] = 0;
 		map_center.vec[0] = 0; map_center.vec[1] = 0; map_center.vec[2] = 0;
@@ -256,22 +256,23 @@ Mat33<fp_num> align_atoms(
 			}
 		}
 		center /= count;
+		grid_center = center;
 		map_center /= count;
 	} else{
 		// new center to align to based on closest atom to geometric center
-		center.vec[0]     = grid_atoms[grid_ids[closest]].x; center.vec[1]     = grid_atoms[grid_ids[closest]].y; center.vec[2]     = grid_atoms[grid_ids[closest]].z;
-		map_center.vec[0] = map_atoms[map_match[closest]].x; map_center.vec[1] = map_atoms[map_match[closest]].y; map_center.vec[2] = map_atoms[map_match[closest]].z;
+		grid_center.vec[0] = grid_atoms[grid_ids[closest]].x; grid_center.vec[1] = grid_atoms[grid_ids[closest]].y; grid_center.vec[2] = grid_atoms[grid_ids[closest]].z;
+		map_center.vec[0]  = map_atoms[map_match[closest]].x; map_center.vec[1]  = map_atoms[map_match[closest]].y; map_center.vec[2]  = map_atoms[map_match[closest]].z;
 	}
-	translate = center;
-	cout << "\t-> Translation vector: (" << translate.V3Str(',') << ")\n";
+	cout << "\t-> Grid center: (" << grid_center.V3Str(',',4) << ")\n";
+	cout << "\t-> Map center:  (" << map_center.V3Str(',',4) << ")\n";
 	Mat33<double> B, BTB, BBT, U, V, M;
 	B.M3Zeros();
 	// Calculate gyration tensors for both
 	for(unsigned int i=0; i<grid_ids.size(); i++){
 		// align to respective centers
-		grid_atoms[grid_ids[i]].x -= center.vec[0];
-		grid_atoms[grid_ids[i]].y -= center.vec[1];
-		grid_atoms[grid_ids[i]].z -= center.vec[2];
+		grid_atoms[grid_ids[i]].x -= grid_center.vec[0];
+		grid_atoms[grid_ids[i]].y -= grid_center.vec[1];
+		grid_atoms[grid_ids[i]].z -= grid_center.vec[2];
 		map_atoms[map_match[i]].x -= map_center.vec[0];
 		map_atoms[map_match[i]].y -= map_center.vec[1];
 		map_atoms[map_match[i]].z -= map_center.vec[2];
@@ -310,7 +311,12 @@ Mat33<fp_num> align_atoms(
 	M.mat[2][2] = U.M3Det() * V.M3Det();
 	Mat33<fp_num> result;
 	result = U * (M * V.M3Transpose());
-	cout << "\t-> Rotation matrix:\n" << result.M3Str() << "\n";
+	cout << "\t-> Rotation matrix:\n";
+	cout.precision(4);
+	cout.setf(ios::fixed, ios::floatfield);
+	cout << "\t\t" << std::setw(9) << result.mat[0][0] << " " << std::setw(9) << result.mat[1][0] << " " << std::setw(9) << result.mat[2][0] << "\n";
+	cout << "\t\t" << std::setw(9) << result.mat[0][1] << " " << std::setw(9) << result.mat[1][1] << " " << std::setw(9) << result.mat[2][1] << "\n";
+	cout << "\t\t" << std::setw(9) << result.mat[0][2] << " " << std::setw(9) << result.mat[1][2] << " " << std::setw(9) << result.mat[2][2] << "\n";
 	// calculate RMSD
 	fp_num rmsd = 0;
 	for(unsigned int i=0; i<grid_ids.size(); i++){
@@ -331,7 +337,7 @@ Mat33<fp_num> align_atoms(
 		cout << str << std::setw(3) << map_atoms[map_match[i]].res_name << " ";
 		cout << map_atoms[map_match[i]].chain_id;
 		cout << std::setw(4) << map_atoms[map_match[i]].res_id << "    ";
-		cout << std::setw(8) << location.vec[0]+translate.vec[0] << std::setw(8) << location.vec[1]+translate.vec[1] << std::setw(8) << location.vec[2]+translate.vec[2];
+		cout << std::setw(8) << location.vec[0]+grid_center.vec[0] << std::setw(8) << location.vec[1]+grid_center.vec[1] << std::setw(8) << location.vec[2]+grid_center.vec[2];
 		cout << "  1.00  0.00          " << std::setw(2) << map_atoms[map_match[i]].atom_type << "\n";*/
 		location -= center;
 		rmsd += (location * location);
