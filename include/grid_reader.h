@@ -27,7 +27,7 @@
 
 using namespace std;
 
-typedef std::vector<float> GridMap;
+typedef std::vector<fp_num> GridMap;
 
 inline float map2float(const char* c)
 // This function converts what we typically find in an autogrid map file into a
