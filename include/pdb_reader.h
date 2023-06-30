@@ -88,6 +88,7 @@ Mat33<fp_num> align_atoms(
 		// only focus on heavy atoms of large molecules in pdb(qt) with no alternative coordinates
 		if((grid_atoms[i].alt_id==' ') && (grid_atoms[i].hetatm == false) && (grid_atoms[i].atom_type[0] != 'H'))
 		{
+			location.vec[0] = grid_atoms[i].x; location.vec[1] = grid_atoms[i].y; location.vec[2] = grid_atoms[i].z;
 			if(!use_grid_box || point_in_box(location - grid_start, grid_dims)){
 				grid_ids.push_back(i);
 			} else{ // make sure to exclude whole residue
@@ -253,7 +254,7 @@ Mat33<fp_num> align_atoms(
 	unsigned int count = 0;
 	for(unsigned int i=0; i<grid_ids.size(); i++){
 		if(grid_ids[i]<0) continue;
-		location.vec[0] = grid_atoms[i].x; location.vec[1] = grid_atoms[i].y; location.vec[2] = grid_atoms[i].z;
+		location.vec[0] = grid_atoms[grid_ids[i]].x; location.vec[1] = grid_atoms[grid_ids[i]].y; location.vec[2] = grid_atoms[grid_ids[i]].z;
 		center += location;
 		count++;
 	}
