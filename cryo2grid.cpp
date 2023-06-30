@@ -215,7 +215,7 @@ int main(int argc, const char* argv[])
 	}
 	
 	fp_num* grid_align = NULL;
-	if(map_ligand.size() > 4){ // i.e. than .pdb
+	if(map_ligand.size() > 4){ // i.e. longer than ".pdb"
 		std::vector<PDBatom> map_lig_atoms, grid_rec_atoms;
 		map_lig_atoms = read_pdb_atoms(map_ligand);
 		if(align_lig.length() != 0){

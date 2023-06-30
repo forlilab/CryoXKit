@@ -387,12 +387,46 @@ inline std::vector<fp_num> read_map_to_grid(
 	fp_num map_x_end    = map_x_start  + map_x_dim * grid_spacing;
 	fp_num map_y_end    = map_y_start  + map_y_dim * grid_spacing;
 	fp_num map_z_end    = map_z_start  + map_z_dim * grid_spacing;
+	fp_num bounding_x_start = map_x_start;
+	fp_num bounding_y_start = map_y_start;
+	fp_num bounding_z_start = map_z_start;
+	fp_num bounding_x_end = map_x_end;
+	fp_num bounding_y_end = map_y_end;
+	fp_num bounding_z_end = map_z_end;
+	fp_num gx, gy, gz;
+	fp_num ga, gb, gc;
+	if(grid_align != NULL){
+		for(unsigned int i=0; i<8; i++){ // go over all corners of the grid box
+			// subtract grid center
+			gx = map_x_center + map_x_dim * grid_spacing * ((i&1) ? 0.5 : -0.5) - grid_align[12];
+			gy = map_y_center + map_y_dim * grid_spacing * ((i&2) ? 0.5 : -0.5) - grid_align[13];
+			gz = map_z_center + map_x_dim * grid_spacing * ((i&4) ? 0.5 : -0.5) - grid_align[14];
+			// rotate
+			ga = gx * grid_align[0] + gy * grid_align[3] + gz * grid_align[6];
+			gb = gx * grid_align[1] + gy * grid_align[4] + gz * grid_align[7];
+			gc = gx * grid_align[2] + gy * grid_align[5] + gz * grid_align[8];
+			// move to map center
+			ga += grid_align[9];
+			gb += grid_align[10];
+			gc += grid_align[11];
+			// move bounding box if needed
+			bounding_x_start = (bounding_x_start > ga) ? ga : bounding_x_start;
+			bounding_y_start = (bounding_y_start > gb) ? gb : bounding_y_start;
+			bounding_z_start = (bounding_z_start > gc) ? gc : bounding_z_start;
+			bounding_x_end = (bounding_x_end < ga) ? ga : bounding_x_end;
+			bounding_y_end = (bounding_y_end < gb) ? gb : bounding_y_end;
+			bounding_z_end = (bounding_z_end < gc) ? gc : bounding_z_end;
+		}
+	}
 	// test if there is data for our grid box
-	if(((map_x_start - density_x_start) < -MAPEPS) || ((map_y_start - density_y_start) < -MAPEPS) || ((map_z_start - density_z_start) < -MAPEPS) ||
-	   ((map_x_end   - density_x_end)   >  MAPEPS) || ((map_y_end   - density_y_end)   >  MAPEPS) || ((map_z_end   - density_z_end)   >  MAPEPS))
+	if(((bounding_x_start - density_x_start) < -MAPEPS) || ((bounding_y_start - density_y_start) < -MAPEPS) || ((bounding_z_start - density_z_start) < -MAPEPS) ||
+	   ((bounding_x_end   - density_x_end)   >  MAPEPS) || ((bounding_y_end   - density_y_end)   >  MAPEPS) || ((bounding_z_end   - density_z_end)   >  MAPEPS))
 	{
 		cout << "\nERROR: The specified grid box is (partially) outside of the file's density data.\n";
-		cout << "       Grid coordinate range: (" << map_x_start << ", " << map_y_start << ", " << map_z_start << ") A to (" << map_x_end << ", " << map_y_end << ", " << map_z_end << ") A\n";
+		if(grid_align == NULL)
+			cout << "       Grid coordinate range: (" << map_x_start << ", " << map_y_start << ", " << map_z_start << ") A to (" << map_x_end << ", " << map_y_end << ", " << map_z_end << ") A\n";
+		else
+			cout << "       Grid bounding box: (" << bounding_x_start << ", " << bounding_y_start << ", " << bounding_z_start << ") A to (" << bounding_x_end << ", " << bounding_y_end << ", " << bounding_z_end << ") A\n";
 		exit(6);
 	}
 	densities.resize(xy_stride*z_dim);
@@ -475,6 +509,8 @@ inline std::vector<fp_num> read_map_to_grid(
 	cout << "Interpolating density data for " << map_x_dim << "x" << map_y_dim << "x" << map_z_dim << " grid (spacing: " << grid_spacing << " A)\n";
 	cout << "\t-> grid start:  (" << map_x_start << ", " << map_y_start << ", " << map_z_start << ") A\n";
 	cout << "\t-> grid size:   (" << map_x_dim * grid_spacing << ", " << map_y_dim * grid_spacing << ", " << map_z_dim * grid_spacing << ") A\n";
+	if(grid_align != NULL)
+		cout << "\t-> grid bounding box: (" << bounding_x_start << ", " << bounding_y_start << ", " << bounding_z_start << ") A to (" << bounding_x_end << ", " << bounding_y_end << ", " << bounding_z_end << ") A\n";
 	
 	fp_num grid_a, grid_b, grid_c, density;
 	std::vector<fp_num> grid_map;
@@ -492,9 +528,6 @@ inline std::vector<fp_num> read_map_to_grid(
 	
 	fp_num* density_data = densities.data();
 	fp_num* data_point;
-#ifdef MGLTOOLS_MATH_COMPARISON
-	fp_num ga, gb, gc;
-#endif
 	rho_min = 0;
 	rho_max = 0;
 	for(unsigned int z = 0; z <= map_z_dim; z++){
@@ -505,9 +538,9 @@ inline std::vector<fp_num> read_map_to_grid(
 				grid_c = map_z_start + z * grid_spacing - z_origin;
 				if(grid_align != NULL){ // align grid coordinates to density map
 					// subtract grid center
-					fp_num gx = grid_a - grid_align[12];
-					fp_num gy = grid_b - grid_align[13];
-					fp_num gz = grid_c - grid_align[14];
+					gx = grid_a - grid_align[12];
+					gy = grid_b - grid_align[13];
+					gz = grid_c - grid_align[14];
 					// rotate
 					grid_a = gx * grid_align[0] + gy * grid_align[3] + gz * grid_align[6];
 					grid_b = gx * grid_align[1] + gy * grid_align[4] + gz * grid_align[7];
