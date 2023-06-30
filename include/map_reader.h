@@ -177,7 +177,8 @@ inline std::vector<fp_num> read_map_to_grid(
                                             fp_num       map_x_center,
                                             fp_num       map_y_center,
                                             fp_num       map_z_center,
-                                            fp_num       grid_spacing
+                                            fp_num       grid_spacing,
+                                            fp_num*      grid_align = NULL
                                            )
 {
 	timeval runtime;
@@ -502,6 +503,20 @@ inline std::vector<fp_num> read_map_to_grid(
 				grid_a = map_x_start + x * grid_spacing - x_origin;
 				grid_b = map_y_start + y * grid_spacing - y_origin;
 				grid_c = map_z_start + z * grid_spacing - z_origin;
+				if(grid_align != NULL){ // align grid coordinates to density map
+					// subtract grid center
+					fp_num gx = grid_a - grid_align[12];
+					fp_num gy = grid_b - grid_align[13];
+					fp_num gz = grid_c - grid_align[14];
+					// rotate
+					grid_a = gx * grid_align[0] + gy * grid_align[3] + gz * grid_align[6];
+					grid_b = gx * grid_align[1] + gy * grid_align[4] + gz * grid_align[7];
+					grid_c = gx * grid_align[2] + gy * grid_align[5] + gz * grid_align[8];
+					// move to map center
+					grid_a += grid_align[9];
+					grid_b += grid_align[10];
+					grid_c += grid_align[11];
+				}
 				c2f(grid_a, grid_b, grid_c);
 				grid_a *= inv_x_step;
 				grid_b *= inv_y_step;

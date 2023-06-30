@@ -338,7 +338,7 @@ Mat33<fp_num> align_atoms(
 	V = BTB.Eigenvectors(ew, true); // make sure to normalize eigenvalues
 	M.mat[2][2] = U.M3Det() * V.M3Det();
 	Mat33<fp_num> result;
-	result = U * (M * V.M3Transpose());
+	result = V * (M * U.M3Transpose());
 	cout << "\t-> Rotation matrix:\n";
 	cout.precision(4);
 	cout.setf(ios::fixed, ios::floatfield);
@@ -354,10 +354,10 @@ Mat33<fp_num> align_atoms(
 		location.vec[0] = map_atoms[map_match[i]].x;
 		location.vec[1] = map_atoms[map_match[i]].y;
 		location.vec[2] = map_atoms[map_match[i]].z;
-		location = result * location;
 		center.vec[0] = grid_atoms[grid_ids[i]].x;
 		center.vec[1] = grid_atoms[grid_ids[i]].y;
 		center.vec[2] = grid_atoms[grid_ids[i]].z;
+		center = result * center;
 #if DEBUG_LEVEL>3
 		cout.precision(3);
 		cout.fill(' ');
@@ -369,7 +369,7 @@ Mat33<fp_num> align_atoms(
 		cout << str << std::setw(3) << map_atoms[map_match[i]].res_name << " ";
 		cout << map_atoms[map_match[i]].chain_id;
 		cout << std::setw(4) << map_atoms[map_match[i]].res_id << "    ";
-		cout << std::setw(8) << location.vec[0]+grid_center.vec[0] << std::setw(8) << location.vec[1]+grid_center.vec[1] << std::setw(8) << location.vec[2]+grid_center.vec[2];
+		cout << std::setw(8) << center.vec[0]+map_center.vec[0] << std::setw(8) << center.vec[1]+map_center.vec[1] << std::setw(8) << center.vec[2]+map_center.vec[2];
 		cout << "  1.00  0.00          " << std::setw(2) << map_atoms[map_match[i]].atom_type << "\n";
 #endif
 		location -= center;
