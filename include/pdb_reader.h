@@ -57,23 +57,22 @@ inline bool point_in_box(
 }
 
 
-Mat33<fp_num> align_atoms(
-                          std::vector<PDBatom> &map_atoms,
-                          std::vector<PDBatom> &grid_atoms,
-                          int                   map_x_dim,
-                          int                   map_y_dim,
-                          int                   map_z_dim,
-                          fp_num                map_x_center,
-                          fp_num                map_y_center,
-                          fp_num                map_z_center,
-                          fp_num                grid_spacing,
-                          Vec3<fp_num>         &map_center,
-                          Vec3<fp_num>         &grid_center
-                         )
+fp_num* align_atoms(
+                    std::vector<PDBatom> &map_atoms,
+                    std::vector<PDBatom> &grid_atoms,
+                    int                   map_x_dim,
+                    int                   map_y_dim,
+                    int                   map_z_dim,
+                    fp_num                map_x_center,
+                    fp_num                map_y_center,
+                    fp_num                map_z_center,
+                    fp_num                grid_spacing
+                   )
 {
 	timeval runtime;
 	start_timer(runtime);
 	cout << "Aligning map receptor to grid receptor\n";
+	Vec3<fp_num> map_center, grid_center;
 	bool use_grid_box = (map_x_dim > 0) && (map_y_dim > 0) && (map_z_dim > 0);
 	Vec3<fp_num> grid_dims;
 	grid_dims.vec[0] = map_x_dim * grid_spacing; grid_dims.vec[1] = map_y_dim * grid_spacing; grid_dims.vec[2] = map_z_dim * grid_spacing;
@@ -337,14 +336,14 @@ Mat33<fp_num> align_atoms(
 	ew = cew.Re();
 	V = BTB.Eigenvectors(ew, true); // make sure to normalize eigenvalues
 	M.mat[2][2] = U.M3Det() * V.M3Det();
-	Mat33<fp_num> result;
-	result = V * (M * U.M3Transpose());
+	Mat33<fp_num> grid_rot;
+	grid_rot = V * (M * U.M3Transpose());
 	cout << "\t-> Rotation matrix:\n";
 	cout.precision(4);
 	cout.setf(ios::fixed, ios::floatfield);
-	cout << "\t\t" << std::setw(9) << result.mat[0][0] << " " << std::setw(9) << result.mat[1][0] << " " << std::setw(9) << result.mat[2][0] << "\n";
-	cout << "\t\t" << std::setw(9) << result.mat[0][1] << " " << std::setw(9) << result.mat[1][1] << " " << std::setw(9) << result.mat[2][1] << "\n";
-	cout << "\t\t" << std::setw(9) << result.mat[0][2] << " " << std::setw(9) << result.mat[1][2] << " " << std::setw(9) << result.mat[2][2] << "\n";
+	cout << "\t\t" << std::setw(9) << grid_rot.mat[0][0] << " " << std::setw(9) << grid_rot.mat[1][0] << " " << std::setw(9) << grid_rot.mat[2][0] << "\n";
+	cout << "\t\t" << std::setw(9) << grid_rot.mat[0][1] << " " << std::setw(9) << grid_rot.mat[1][1] << " " << std::setw(9) << grid_rot.mat[2][1] << "\n";
+	cout << "\t\t" << std::setw(9) << grid_rot.mat[0][2] << " " << std::setw(9) << grid_rot.mat[1][2] << " " << std::setw(9) << grid_rot.mat[2][2] << "\n";
 	// calculate RMSD
 	fp_num rmsd = 0;
 	count = 0;
@@ -357,7 +356,7 @@ Mat33<fp_num> align_atoms(
 		center.vec[0] = grid_atoms[grid_ids[i]].x;
 		center.vec[1] = grid_atoms[grid_ids[i]].y;
 		center.vec[2] = grid_atoms[grid_ids[i]].z;
-		center = result * center;
+		center = grid_rot * center;
 #if DEBUG_LEVEL>3
 		cout.precision(3);
 		cout.fill(' ');
@@ -375,10 +374,14 @@ Mat33<fp_num> align_atoms(
 		location -= center;
 		rmsd += (location * location);
 	}
+	fp_num* grid_align = new fp_num[9 + 3 + 3];
+	memcpy(grid_align, grid_rot.mat, 9 * sizeof(fp_num));
+	memcpy(grid_align + 9, map_center.vec, 3 * sizeof(fp_num));
+	memcpy(grid_align + 12, grid_center.vec, 3 * sizeof(fp_num));
 	cout.precision(3);
 	cout << "\t-> RMSD after alignment (" << count << " atoms): " << sqrt(rmsd/count) << " A\n";
 	cout << "<- Finished alignment, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
-	return result;
+	return grid_align;
 }
 
 // trim input string range -- careful: no range checking

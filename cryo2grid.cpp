@@ -224,24 +224,17 @@ int main(int argc, const char* argv[])
 			cout << "ERROR: No receptor specified in grid map files.\n";
 			exit(2);
 		}
-		Vec3<fp_num> map_center, grid_center;
-		Mat33<fp_num> map_rot = align_atoms(
-		                                    map_lig_atoms,
-		                                    grid_rec_atoms,
-		                                    X_dim,
-		                                    Y_dim,
-		                                    Z_dim,
-		                                    X_center,
-		                                    Y_center,
-		                                    Z_center,
-		                                    grid_spacing,
-		                                    map_center,
-		                                    grid_center
-		                                   );
-		grid_align = new fp_num[9 + 3 + 3];
-		memcpy(grid_align, map_rot.mat, 9 * sizeof(fp_num));
-		memcpy(grid_align + 9, map_center.vec, 3 * sizeof(fp_num));
-		memcpy(grid_align + 12, grid_center.vec, 3 * sizeof(fp_num));
+		grid_align = align_atoms(
+		                         map_lig_atoms,
+		                         grid_rec_atoms,
+		                         X_dim,
+		                         Y_dim,
+		                         Z_dim,
+		                         X_center,
+		                         Y_center,
+		                         Z_center,
+		                         grid_spacing
+		                        );
 	}
 	
 	std::vector<fp_num> density = read_map_to_grid(
