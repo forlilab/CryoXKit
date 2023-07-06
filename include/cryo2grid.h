@@ -44,7 +44,15 @@ inline std::vector<std::string> filter_grid_files(std::vector<std::string> grid_
 	return filtered;
 }
 
-std::vector<GridMap> read_grid_maps(std::vector<std::string> grid_files);
+std::vector<GridMap> read_grid_maps(
+                                    std::vector<std::string> grid_files,
+                                    std::string              rec_name = ""
+                                   );
+
+std::string get_grid_receptor_filename(
+                                       std::vector<GridMap> grid_maps,
+                                       std::vector<std::string> grid_files
+                                      );
 
 void write_grid_maps(
                      std::vector<fp_num> density,

@@ -53,6 +53,7 @@ inline std::vector<fp_num> modify_densities(
 	fp_num rho_max               = 0;
 	std::vector<fp_num> modified_density;
 	modified_density.resize(densities.size());
+	modified_density[0] = densities[0];
 	modified_density[1] = densities[1];
 	modified_density[2] = densities[2];
 	modified_density[3] = densities[3];
@@ -73,6 +74,7 @@ inline std::vector<fp_num> modify_densities(
 	}
 	modified_density[8] = rho_min;
 	modified_density[9] = rho_max;
+	if((unsigned int)densities[0] > 10) memcpy(modified_density.data() + 10, densities.data() + 10, ((unsigned int)densities[0] - 10) * sizeof(fp_num));
 	cout << "<- Finished adjusting, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
 	return modified_density;
 }

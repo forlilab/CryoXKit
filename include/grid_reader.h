@@ -151,8 +151,11 @@ inline GridMap read_grid_map(
 		exit(7);
 	}
 	GridMap data;
-	data.resize((sizeX+1)*(sizeY+1)*(sizeZ+1) + 10);
-	data[0] = 10;
+	unsigned int char_len = receptor_file.size() + 1; // add trailing \0
+	data.push_back(10 + ((char_len%(sizeof(fp_num))!=0)  + char_len/sizeof(fp_num))*sizeof(fp_num));
+	cout << "len: " << (unsigned int)data[0] << "\n";
+	data.resize((sizeX+1)*(sizeY+1)*(sizeZ+1) + (unsigned int)data[0]);
+	memcpy(data.data() + 10, receptor_file.c_str(), char_len);
 	data[1] = sizeX;
 	data[2] = sizeY;
 	data[3] = sizeZ;

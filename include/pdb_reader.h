@@ -57,18 +57,77 @@ inline bool point_in_box(
 }
 
 
-fp_num* align_atoms(
-                    std::vector<PDBatom> &map_atoms,
-                    std::vector<PDBatom> &grid_atoms,
-                    int                   map_x_dim,
-                    int                   map_y_dim,
-                    int                   map_z_dim,
-                    fp_num                map_x_center,
-                    fp_num                map_y_center,
-                    fp_num                map_z_center,
-                    fp_num                grid_spacing
-                   )
+// trim input string range -- careful: no range checking
+static inline void range_trim_to_char(std::string s, unsigned int start, unsigned int end, char* c) {
+	unsigned int count = 0;
+	for(unsigned int i = start; i<end; i++)
+		if(!std::isspace(s[i])) c[count++] = s[i];
+	c[count] = '\0';
+}
+
+inline std::vector<PDBatom> read_pdb_atoms(
+                                           std::string filename
+                                          )
 {
+	timeval runtime;
+	start_timer(runtime);
+	cout << "Reading pdb(qt) file [" << filename << "] ... ";
+	std::vector<PDBatom> atoms;
+	PDBatom current;
+	std::ifstream file(filename);
+	if(file.fail()){
+		cout << "\nERROR: Can't open file.\n";
+		exit(1);
+	}
+	std::string line;
+	char tempstr[256];
+	bool hetatm;
+	while(std::getline(file, line))
+	{
+		sscanf(line.c_str(),"%255s",tempstr);
+		hetatm = (strcmp(tempstr, "HETATM") == 0);
+		if (hetatm || (strcmp(tempstr, "ATOM") == 0))
+		{
+			current.hetatm = hetatm;
+			line.insert(54,1,' '); // add spaces to make reading coordinates easier
+			line.insert(46,1,' ');
+			line.insert(38,1,' ');
+			sscanf(&line.c_str()[30], "%f %f %f", &(current.x), &(current.y), &(current.z));
+			range_trim_to_char(line, 12, 16, current.name);
+			current.alt_id = line[16];
+			range_trim_to_char(line, 17, 20, current.res_name);
+			current.chain_id = line[21];
+			range_trim_to_char(line, 80, 83, current.atom_type); // reading atom type
+			line[26]='\0'; // make sure res_id only 4 digits
+			sscanf(&line.c_str()[22], "%d", &(current.res_id));
+			atoms.push_back(current);
+		}
+	}
+	file.close();
+	cout << "Done, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
+	return atoms;
+}
+
+inline fp_num* align_pdb_atoms(
+                               std::string map_ligand,
+                               std::string align_lig,
+                               int         map_x_dim,
+                               int         map_y_dim,
+                               int         map_z_dim,
+                               fp_num      map_x_center,
+                               fp_num      map_y_center,
+                               fp_num      map_z_center,
+                               fp_num      grid_spacing
+                          )
+{
+	std::vector<PDBatom> map_atoms, grid_atoms;
+	map_atoms = read_pdb_atoms(map_ligand);
+	if(align_lig.length() != 0){
+		grid_atoms = read_pdb_atoms(align_lig);
+	} else{
+		cout << "ERROR: No receptor specified in grid map files.\n";
+		exit(2);
+	}
 	timeval runtime;
 	start_timer(runtime);
 	cout << "Aligning map receptor to grid receptor\n";
@@ -383,58 +442,6 @@ fp_num* align_atoms(
 	cout << "<- Finished alignment, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
 	return grid_align;
 }
-
-// trim input string range -- careful: no range checking
-static inline void range_trim_to_char(std::string s, unsigned int start, unsigned int end, char* c) {
-	unsigned int count = 0;
-	for(unsigned int i = start; i<end; i++)
-		if(!std::isspace(s[i])) c[count++] = s[i];
-	c[count] = '\0';
-}
-
-std::vector<PDBatom> read_pdb_atoms(
-                                    std::string filename
-                                   )
-{
-	timeval runtime;
-	start_timer(runtime);
-	cout << "Reading pdb(qt) file [" << filename << "] ... ";
-	std::vector<PDBatom> atoms;
-	PDBatom current;
-	std::ifstream file(filename);
-	if(file.fail()){
-		cout << "\nERROR: Can't open file.\n";
-		exit(1);
-	}
-	std::string line;
-	char tempstr[256];
-	bool hetatm;
-	while(std::getline(file, line))
-	{
-		sscanf(line.c_str(),"%255s",tempstr);
-		hetatm = (strcmp(tempstr, "HETATM") == 0);
-		if (hetatm || (strcmp(tempstr, "ATOM") == 0))
-		{
-			current.hetatm = hetatm;
-			line.insert(54,1,' '); // add spaces to make reading coordinates easier
-			line.insert(46,1,' ');
-			line.insert(38,1,' ');
-			sscanf(&line.c_str()[30], "%f %f %f", &(current.x), &(current.y), &(current.z));
-			range_trim_to_char(line, 12, 16, current.name);
-			current.alt_id = line[16];
-			range_trim_to_char(line, 17, 20, current.res_name);
-			current.chain_id = line[21];
-			range_trim_to_char(line, 80, 83, current.atom_type); // reading atom type
-			line[26]='\0'; // make sure res_id only 4 digits
-			sscanf(&line.c_str()[22], "%d", &(current.res_id));
-			atoms.push_back(current);
-		}
-	}
-	file.close();
-	cout << "Done, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
-	return atoms;
-}
-
 
 #endif // INCLUDED_PDB_READER
 

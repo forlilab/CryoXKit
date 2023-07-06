@@ -12,7 +12,7 @@ import sys
 from .cryo2grid_wrapper import *
 
 class Cryo2Grid:
-    def __init__(self, map_file=None):
+    def __init__(self, map_file=None, map_receptor=None):
         """Initialize the Cryo2Grid object.
 
         Arguments:
@@ -20,6 +20,8 @@ class Cryo2Grid:
 
         """
         self._map_file     = map_file
+        self._map_receptor = map_receptor
+        self._align_rec    = ''
         self._map_x_dim    = None
         self._map_y_dim    = None
         self._map_z_dim    = None
@@ -38,7 +40,8 @@ class Cryo2Grid:
 
         """
         self._grid_files   = filter_grid_files(gridmap_files)
-        self._gridmaps     = read_grid_maps(self._grid_files);
+        self._gridmaps     = read_grid_maps(self._grid_files, self._align_rec)
+        self._align_rec    = get_grid_receptor_filename(self._gridmaps, self._grid_files)
         self._map_x_dim    = (self._gridmaps[0])[1]
         self._map_y_dim    = (self._gridmaps[0])[2]
         self._map_z_dim    = (self._gridmaps[0])[3]
@@ -59,10 +62,10 @@ class Cryo2Grid:
 
         """
         if self._grid_files is None:
-            raise RuntimeError('Error: No grid maps have been read yet.')
+            raise RuntimeError('ERROR: No grid maps have been read yet.')
         write_grid_maps(density, self._gridmaps, self._grid_files, write_type);
     
-    def ReadMapFile(self, map_file=None, map_x_dim=None, map_y_dim=None, map_z_dim=None, map_x_center=None, map_y_center=None, map_z_center=None, grid_spacing=None):
+    def ReadMapFile(self, map_file=None, map_x_dim=None, map_y_dim=None, map_z_dim=None, map_x_center=None, map_y_center=None, map_z_center=None, grid_spacing=None, grid_align=None):
         """Read Map (X-ray or CryoEM) file
 
         Arguments:
@@ -78,37 +81,42 @@ class Cryo2Grid:
         if map_file is None:
             map_file=self._map_file
         if map_file is None:
-            raise RuntimeError('Error: No Map file specified.')
+            raise RuntimeError('ERROR: No Map file specified.')
         if map_x_dim is None:
             map_x_dim=int(self._map_x_dim)
         if map_x_dim is None:
-            raise RuntimeError('Error: Number of grid points in x-direction not set.')
+            raise RuntimeError('ERROR: Number of grid points in x-direction not set.')
         if map_y_dim is None:
             map_y_dim=int(self._map_y_dim)
         if map_y_dim is None:
-            raise RuntimeError('Error: Number of grid points in y-direction not set.')
+            raise RuntimeError('ERROR: Number of grid points in y-direction not set.')
         if map_z_dim is None:
             map_z_dim=int(self._map_z_dim)
         if map_z_dim is None:
-            raise RuntimeError('Error: Number of grid points in z-direction not set.')
+            raise RuntimeError('ERROR: Number of grid points in z-direction not set.')
         if map_x_center is None:
             map_x_center=self._map_x_center
         if map_x_center is None:
-            raise RuntimeError('Error: Grid map center_x not set.')
+            raise RuntimeError('ERROR: Grid map center_x not set.')
         if map_y_center is None:
             map_y_center=self._map_y_center
         if map_y_center is None:
-            raise RuntimeError('Error: Grid map center_y not set.')
+            raise RuntimeError('ERROR: Grid map center_y not set.')
         if map_z_center is None:
             map_z_center=self._map_z_center
         if map_z_center is None:
-            raise RuntimeError('Error: Grid map center_z not set.')
+            raise RuntimeError('ERROR: Grid map center_z not set.')
         if grid_spacing is None:
             grid_spacing=self._grid_spacing
         if grid_spacing is None:
-            raise RuntimeError('Error: Grid map spacing not set.')
+            raise RuntimeError('ERROR: Grid map spacing not set.')
+        if grid_align is None:
+            if self._map_receptor is not None:
+                map_rec = self._map_receptor
+                align_rec = self._align_rec
+                grid_align = align_pdb_atoms(map_rec, align_rec, map_x_dim, map_y_dim, map_z_dim, map_x_center, map_y_center, map_z_center, grid_spacing)
         
-        density = read_map_to_grid(map_file, 0, map_x_dim, map_y_dim, map_z_dim, map_x_center, map_y_center, map_z_center, grid_spacing)
+        density = read_map_to_grid(map_file, 0, map_x_dim, map_y_dim, map_z_dim, map_x_center, map_y_center, map_z_center, grid_spacing, grid_align)
         return density;
 
     def ModifyDensity(self, density, log_max=-3.0, rate=2.0, x0=0.5):
