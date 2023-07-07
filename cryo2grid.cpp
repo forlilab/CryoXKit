@@ -128,26 +128,116 @@ void write_grid_maps(
 	}
 }
 
+std::vector<fp_num> average_densities_to_grid(
+                                              std::vector<std::string> map_files,
+                                              std::vector<std::string> map_receptors,
+                                                          std::string  align_rec,
+                                                       int map_type,
+                                              unsigned int map_x_dim,
+                                              unsigned int map_y_dim,
+                                              unsigned int map_z_dim,
+                                              fp_num       map_x_center,
+                                              fp_num       map_y_center,
+                                              fp_num       map_z_center,
+                                              fp_num       grid_spacing
+                                             )
+{
+	if(map_files.size() < 1){
+		cout << "ERROR: No density map file(s) specified, nothing to do.\n";
+		exit(1);
+	}
+	std::vector<std::vector<fp_num>> densities;
+	densities.resize(map_files.size());
+	#pragma omp parallel for
+	for(unsigned int i=0; i<map_files.size(); i++){
+		fp_num* grid_align = NULL;
+		if(i < map_receptors.size())
+			if(map_receptors[i].size() > 4) // i.e. longer than ".pdb"
+				grid_align = align_pdb_atoms(
+				                             map_receptors[i],
+				                             align_rec,
+				                             map_x_dim,
+				                             map_y_dim,
+				                             map_z_dim,
+				                             map_x_center,
+				                             map_y_center,
+				                             map_z_center,
+				                             grid_spacing
+				                            );
+		densities[i] = read_map_to_grid(
+		                                map_files[i],
+		                                map_type,
+		                                map_x_dim,
+		                                map_y_dim,
+		                                map_z_dim,
+		                                map_x_center,
+		                                map_y_center,
+		                                map_z_center,
+		                                grid_spacing,
+		                                grid_align
+		                               );
+		if(grid_align != NULL) delete[] grid_align;
+		
+		// normalize if more than one map file
+		if(map_files.size() > 1){
+			fp_num rho_avg = 0;
+			fp_num rho_std = 0;
+			fp_num rho;
+			for(unsigned int j=(unsigned int)(densities[i])[0]; j<densities[i].size(); j++){
+				rho = (densities[i])[j];
+				rho_avg += rho;
+				rho_std += rho*rho;
+			}
+			rho_avg /= densities[i].size() - (unsigned int)(densities[i])[0];
+			rho_std /= densities[i].size() - (unsigned int)(densities[i])[0];
+			rho_std -= rho_avg * rho_avg;
+			rho_std  = sqrt(rho_std) * map_files.size(); // multiply by number of maps here so adding below gives us an average
+			for(unsigned int j=(unsigned int)(densities[i])[0]; j<densities[i].size(); j++){
+				(densities[i])[j] -= rho_avg;
+				(densities[i])[j] /= rho_std;
+			}
+		}
+	}
+	for(unsigned int i=1; i<map_files.size(); i++){
+		#pragma omp parallel for
+		for(unsigned int j=(unsigned int)(densities[i])[0]; j<densities[i].size(); j++){
+			(densities[0])[j] += (densities[i])[j];
+		}
+	}
+	// recalculate rho_min, rho_max
+	if(map_files.size() > 1){
+		fp_num rho_min = 1e80;
+		fp_num rho_max = 0;
+		for(unsigned int j=(unsigned int)(densities[0])[0]; j<densities[0].size(); j++){
+			rho_min = std::min((densities[0])[j], rho_min);
+			rho_max = std::max((densities[0])[j], rho_max);
+		}
+		(densities[0])[8] = rho_min;
+		(densities[0])[9] = rho_max;
+	}
+	return densities[0];
+}
+
 int main(int argc, const char* argv[])
 {
 	timeval runtime;
 	start_timer(runtime);
 	
-	string map_file="";
+	std::vector<std::string> map_files{""};
+	std::vector<std::string> map_receptors{""};
 	int X_dim = 0;
 	int Y_dim = 0;
 	int Z_dim = 0;
 	fp_num X_center, Y_center, Z_center;
 	fp_num grid_spacing = 0.375;
-	int write_type = write_grid_ad4;
-	int mod_type   = log_modifier;
+	int write_type      = write_grid_ad4;
+	int mod_type        = log_modifier;
 	bool argument_error = true;
 	std::vector<std::string> grid_files;
-	std::string map_ligand = "";
-	std::string align_lig  = "";
+	std::string align_rec = "";
 	// Check for command line parameters
 	if(argc>2){ // yes, there are some -- parameter required are: (grid filename xor grid center x,y,z, grid x,y,z dimensions, grid spacing, and write type) as well as optionally modifier type
-		map_file        = argv[1]; // map filename
+		map_files[0]    = argv[1]; // map filename
 		string grid     = argv[2]; // grid filename XOR
 		std::size_t ext = grid.find_last_of(".");
 		if(grid.substr(ext).compare(".map")==0)
@@ -166,9 +256,9 @@ int main(int argc, const char* argv[])
 				ext  = grid.find_last_of(".");
 				if((grid.substr(ext).compare(".pdb")==0) ||
 				   (grid.substr(ext).compare(".pdbqt")==0)){
-					if(map_ligand.size()==0){
-						map_ligand = grid;
-					} else align_lig = grid;
+					if(map_receptors[0].size()==0){
+						map_receptors[0] = grid;
+					} else align_rec = grid;
 					count++;
 				} else mod_type = atoi(argv[count++]);
 			}
@@ -180,13 +270,13 @@ int main(int argc, const char* argv[])
 		} else if((grid.substr(ext).compare(".pdb")==0) ||
 		          (grid.substr(ext).compare(".pdbqt")==0))
 		{
-			map_ligand = grid;
+			map_receptors[0] = grid;
 			if(argc>3){
 				grid = argv[3];
 				ext  = grid.find_last_of(".");
 				if((grid.substr(ext).compare(".pdb")==0) ||
 				   (grid.substr(ext).compare(".pdbqt")==0))
-					align_lig = grid;
+					align_rec = grid;
 			}
 			argument_error = (argc <= 3);
 		} else{
@@ -218,8 +308,8 @@ int main(int argc, const char* argv[])
 	
 	std::vector<GridMap> grid_maps;
 	if(grid_files.size()>0){
-		grid_maps    = read_grid_maps(grid_files, align_lig);
-		align_lig    = get_grid_receptor_filename(grid_maps, grid_files);
+		grid_maps    = read_grid_maps(grid_files, align_rec);
+		align_rec    = get_grid_receptor_filename(grid_maps, grid_files);
 		X_dim        = (grid_maps[0])[1];
 		Y_dim        = (grid_maps[0])[2];
 		Z_dim        = (grid_maps[0])[3];
@@ -229,33 +319,19 @@ int main(int argc, const char* argv[])
 		grid_spacing = (grid_maps[0])[7];
 	}
 	
-	fp_num* grid_align = NULL;
-	if(map_ligand.size() > 4){ // i.e. longer than ".pdb"
-		grid_align = align_pdb_atoms(
-		                             map_ligand,
-		                             align_lig,
-		                             X_dim,
-		                             Y_dim,
-		                             Z_dim,
-		                             X_center,
-		                             Y_center,
-		                             Z_center,
-		                             grid_spacing
-		                            );
-	}
-	
-	std::vector<fp_num> density = read_map_to_grid(
-	                                               map_file,
-	                                               automatic,
-	                                               X_dim,
-	                                               Y_dim,
-	                                               Z_dim,
-	                                               X_center,
-	                                               Y_center,
-	                                               Z_center,
-	                                               grid_spacing,
-	                                               grid_align
-	                                              );
+	std::vector<fp_num> density = average_densities_to_grid(
+	                                                        map_files,
+	                                                        map_receptors,
+	                                                        align_rec,
+	                                                        automatic,
+	                                                        X_dim,
+	                                                        Y_dim,
+	                                                        Z_dim,
+	                                                        X_center,
+	                                                        Y_center,
+	                                                        Z_center,
+	                                                        grid_spacing
+	                                                       );
 	
 	std::vector<fp_num> modified = modify_densities(
 	                                                density,
@@ -267,7 +343,7 @@ int main(int argc, const char* argv[])
 	} else{
 		write_grid(
 		           modified.data(),
-		           map_file,
+		           map_files[0],
 		           write_type
 		          );
 	}

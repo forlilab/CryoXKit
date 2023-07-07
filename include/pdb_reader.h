@@ -71,12 +71,12 @@ inline std::vector<PDBatom> read_pdb_atoms(
 {
 	timeval runtime;
 	start_timer(runtime);
-	cout << "Reading pdb(qt) file [" << filename << "] ... ";
 	std::vector<PDBatom> atoms;
 	PDBatom current;
 	std::ifstream file(filename);
 	if(file.fail()){
-		cout << "\nERROR: Can't open file.\n";
+		#pragma omp critical
+		cout << "\nERROR: Can't open pdb(qt) file ["<< filename << "].\n";
 		exit(1);
 	}
 	std::string line;
@@ -104,7 +104,6 @@ inline std::vector<PDBatom> read_pdb_atoms(
 		}
 	}
 	file.close();
-	cout << "Done, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
 	return atoms;
 }
 
@@ -120,17 +119,21 @@ inline fp_num* align_pdb_atoms(
                                fp_num      grid_spacing
                           )
 {
-	std::vector<PDBatom> map_atoms, grid_atoms;
-	map_atoms = read_pdb_atoms(map_ligand);
-	if(align_lig.length() != 0){
-		grid_atoms = read_pdb_atoms(align_lig);
-	} else{
-		cout << "ERROR: No receptor specified in grid map files.\n";
-		exit(2);
-	}
 	timeval runtime;
 	start_timer(runtime);
-	cout << "Aligning map receptor to grid receptor\n";
+	stringstream output;
+	output << "Aligning density map receptor to grid receptor\n";
+	std::vector<PDBatom> map_atoms, grid_atoms;
+	output << "\t-> Reading density map receptor [" << map_ligand << "]\n";
+	map_atoms = read_pdb_atoms(map_ligand);
+	if(align_lig.length() != 0){
+		output << "\t-> Reading grid map receptor [" << align_lig << "]\n";
+		grid_atoms = read_pdb_atoms(align_lig);
+	} else{
+		#pragma omp critical
+		cout << output.str() << "ERROR: No receptor specified in grid map files.\n";
+		exit(1);
+	}
 	Vec3<fp_num> map_center, grid_center;
 	bool use_grid_box = (map_x_dim > 0) && (map_y_dim > 0) && (map_z_dim > 0);
 	Vec3<fp_num> grid_dims;
@@ -159,8 +162,9 @@ inline fp_num* align_pdb_atoms(
 		}
 	}
 	if(grid_ids.size() == 0){ // shouldn't happen
-		cout << "ERROR: No receptor atoms inside grid box. This likely means the wrong receptor is listed in the grid file.\n";
-		exit(1);
+		#pragma omp critical
+		cout << output.str() << "ERROR: No receptor atoms inside grid box. This likely means the wrong receptor is listed in the grid file.\n";
+		exit(2);
 	}
 	// compile a list of grid residue centers (and corresponding ids and how many atoms)
 	std::vector<unsigned int> grid_res_start, grid_res_idx, grid_res_num;
@@ -247,14 +251,14 @@ inline fp_num* align_pdb_atoms(
 				map_res_center /= map_res_count;
 				cross_dist2.clear();
 #if DEBUG_LEVEL>4
-				cout << "         ";
+				output << "         ";
 				for(unsigned int l=0; l<grid_type.size(); l++)
-					cout << std::setw(9) << grid_ids[grid_type[l]]+1;
-				cout << "\n";
+					output << std::setw(9) << grid_ids[grid_type[l]]+1;
+				output << "\n";
 #endif
 				for(unsigned int k=0; k<candidates.size(); k++){
 #if DEBUG_LEVEL>4
-					cout << std::setw(5) << candidates[k]+1 << "    ";
+					output << std::setw(5) << candidates[k]+1 << "    ";
 #endif
 					for(unsigned int l=0; l<grid_type.size(); l++){
 						location.vec[0] = map_atoms[candidates[k]].x;
@@ -263,12 +267,12 @@ inline fp_num* align_pdb_atoms(
 						location -= map_res_center;
 						cross_dist2.push_back(fabs((location * location) - grid_res_center_d2[grid_type[l]]));
 #if DEBUG_LEVEL>4
-						cout.precision(4);
-						cout << std::setw(9) << cross_dist2.back();
+						output.precision(4);
+						output << std::setw(9) << cross_dist2.back();
 #endif
 					}
 #if DEBUG_LEVEL>4
-					cout << "\n";
+					output << "\n";
 #endif
 				}
 				while((candidates.size()>0) && (grid_type.size()>0)){
@@ -296,7 +300,7 @@ inline fp_num* align_pdb_atoms(
 					cross_dist2.erase(cross_dist2.begin(), cross_dist2.begin() + cs);
 					map_match[grid_type[closest_l]] = candidates[closest_k];
 #if DEBUG_LEVEL>3
-					cout << grid_ids[grid_type[closest_l]]+1 << " -> " << candidates[closest_k]+1 << "\n";
+					output << grid_ids[grid_type[closest_l]]+1 << " -> " << candidates[closest_k]+1 << "\n";
 #endif
 					grid_type.erase(grid_type.begin() + closest_l);
 					candidates.erase(candidates.begin() + closest_k);
@@ -346,8 +350,8 @@ inline fp_num* align_pdb_atoms(
 	}
 	grid_center /= count;
 	map_center  /= count;
-	cout << "\t-> Grid center: (" << grid_center.V3Str(',',4) << ")\n";
-	cout << "\t-> Map center:  (" << map_center.V3Str(',',4) << ")\n";
+	output << "\t-> Grid center: (" << grid_center.V3Str(',',4) << ")\n";
+	output << "\t-> Map center:  (" << map_center.V3Str(',',4) << ")\n";
 	Mat33<double> B, BTB, BBT, U, V, M;
 	B.M3Zeros();
 	// Calculate gyration tensors for both
@@ -380,8 +384,9 @@ inline fp_num* align_pdb_atoms(
 	BBT = B * B.M3Transpose();
 	CVec3<double> cew = BBT.Eigenvalues();
 	if(cew.Im()*cew.Im()>EPS){ // shouldn't happen
-		cout << "ERROR: BB^T eigenvalues need to be real.\n";
-		exit(2);
+		#pragma omp critical
+		cout << output.str() << "ERROR: BB^T eigenvalues need to be real.\n";
+		exit(3);
 	}
 	Vec3<double> ew = cew.Re();
 	U = BBT.Eigenvectors(ew, true); // make sure to normalize eigenvalues
@@ -389,20 +394,21 @@ inline fp_num* align_pdb_atoms(
 	BTB = B.M3Transpose() * B;
 	cew = BTB.Eigenvalues();
 	if(cew.Im()*cew.Im()>EPS){ // shouldn't happen
-		cout << "ERROR: B^TB eigenvalues need to be real.\n";
-		exit(3);
+		#pragma omp critical
+		cout << output.str() << "ERROR: B^TB eigenvalues need to be real.\n";
+		exit(4);
 	}
 	ew = cew.Re();
 	V = BTB.Eigenvectors(ew, true); // make sure to normalize eigenvalues
 	M.mat[2][2] = U.M3Det() * V.M3Det();
 	Mat33<fp_num> grid_rot;
 	grid_rot = V * (M * U.M3Transpose());
-	cout << "\t-> Rotation matrix:\n";
-	cout.precision(4);
-	cout.setf(ios::fixed, ios::floatfield);
-	cout << "\t\t" << std::setw(9) << grid_rot.mat[0][0] << " " << std::setw(9) << grid_rot.mat[1][0] << " " << std::setw(9) << grid_rot.mat[2][0] << "\n";
-	cout << "\t\t" << std::setw(9) << grid_rot.mat[0][1] << " " << std::setw(9) << grid_rot.mat[1][1] << " " << std::setw(9) << grid_rot.mat[2][1] << "\n";
-	cout << "\t\t" << std::setw(9) << grid_rot.mat[0][2] << " " << std::setw(9) << grid_rot.mat[1][2] << " " << std::setw(9) << grid_rot.mat[2][2] << "\n";
+	output << "\t-> Rotation matrix:\n";
+	output.precision(4);
+	output.setf(ios::fixed, ios::floatfield);
+	output << "\t\t" << std::setw(9) << grid_rot.mat[0][0] << " " << std::setw(9) << grid_rot.mat[1][0] << " " << std::setw(9) << grid_rot.mat[2][0] << "\n";
+	output << "\t\t" << std::setw(9) << grid_rot.mat[0][1] << " " << std::setw(9) << grid_rot.mat[1][1] << " " << std::setw(9) << grid_rot.mat[2][1] << "\n";
+	output << "\t\t" << std::setw(9) << grid_rot.mat[0][2] << " " << std::setw(9) << grid_rot.mat[1][2] << " " << std::setw(9) << grid_rot.mat[2][2] << "\n";
 	// calculate RMSD
 	fp_num rmsd = 0;
 	count = 0;
@@ -417,18 +423,18 @@ inline fp_num* align_pdb_atoms(
 		center.vec[2] = grid_atoms[grid_ids[i]].z;
 		center = grid_rot * center;
 #if DEBUG_LEVEL>3
-		cout.precision(3);
-		cout.fill(' ');
-		cout.setf(ios::fixed, ios::floatfield);
-		cout << "ATOM  ";
-		cout << std::setw(5) << count << "  ";
+		output.precision(3);
+		output.fill(' ');
+		output.setf(ios::fixed, ios::floatfield);
+		output << "ATOM  ";
+		output << std::setw(5) << count << "  ";
 		std::string str = map_atoms[map_match[i]].name;
 		str.resize(4,' ');
-		cout << str << std::setw(3) << map_atoms[map_match[i]].res_name << " ";
-		cout << map_atoms[map_match[i]].chain_id;
-		cout << std::setw(4) << map_atoms[map_match[i]].res_id << "    ";
-		cout << std::setw(8) << center.vec[0]+map_center.vec[0] << std::setw(8) << center.vec[1]+map_center.vec[1] << std::setw(8) << center.vec[2]+map_center.vec[2];
-		cout << "  1.00  0.00          " << std::setw(2) << map_atoms[map_match[i]].atom_type << "\n";
+		output << str << std::setw(3) << map_atoms[map_match[i]].res_name << " ";
+		output << map_atoms[map_match[i]].chain_id;
+		output << std::setw(4) << map_atoms[map_match[i]].res_id << "    ";
+		output << std::setw(8) << center.vec[0]+map_center.vec[0] << std::setw(8) << center.vec[1]+map_center.vec[1] << std::setw(8) << center.vec[2]+map_center.vec[2];
+		output << "  1.00  0.00          " << std::setw(2) << map_atoms[map_match[i]].atom_type << "\n";
 #endif
 		location -= center;
 		rmsd += (location * location);
@@ -437,9 +443,11 @@ inline fp_num* align_pdb_atoms(
 	memcpy(grid_align, grid_rot.mat, 9 * sizeof(fp_num));
 	memcpy(grid_align + 9, map_center.vec, 3 * sizeof(fp_num));
 	memcpy(grid_align + 12, grid_center.vec, 3 * sizeof(fp_num));
-	cout.precision(3);
-	cout << "\t-> RMSD after alignment (" << count << " atoms): " << sqrt(rmsd/count) << " A\n";
-	cout << "<- Finished alignment, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
+	output.precision(3);
+	output << "\t-> RMSD after alignment (" << count << " atoms): " << sqrt(rmsd/count) << " A\n";
+	output << "<- Finished alignment, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
+	#pragma omp critical
+	cout << output.str();
 	return grid_align;
 }
 

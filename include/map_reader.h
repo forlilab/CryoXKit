@@ -183,14 +183,16 @@ inline std::vector<fp_num> read_map_to_grid(
 {
 	timeval runtime;
 	start_timer(runtime);
+	stringstream output;
 	
 	std::vector<fp_num> densities;
 	
-	cout << "Reading map file [" << filename << "]\n";
+	output << "Reading map file [" << filename << "]\n";
 	std::ifstream map_file(filename, std::ifstream::binary);
 	if(map_file.fail()){
-		cout << "\nERROR: Can't open map file " << filename << ".\n";
-		exit(2);
+		#pragma omp critical
+		cout << output.str() << "\nERROR: Can't open map file " << filename << ".\n";
+		exit(1);
 	}
 	std::streamoff filesize  = map_file.tellg();
 	                           map_file.seekg(0, std::ios::end);
@@ -198,8 +200,9 @@ inline std::vector<fp_num> read_map_to_grid(
 	                           map_file.seekg(0, std::ios::beg);
 	char map_header[256];
 	if(!map_file.read(map_header, 256)){ // the first 256 Bytes are all that's needed really
-		cout << "\nERROR: Can't read header.\n";
-		exit(3);
+		#pragma omp critical
+		cout << output.str() << "\nERROR: Can't read header.\n";
+		exit(2);
 	}
 	char* header = map_header;
 	if(map_type == automatic)
@@ -211,22 +214,24 @@ inline std::vector<fp_num> read_map_to_grid(
 	int tempval;
 	switch(map_type){
 		case dsn6_swap: endian_swap = true;
-		case dsn6:      cout << "\t-> DSN6";
+		case dsn6:      output << "\t-> DSN6";
 		                norm = 100;
 		                break;
-		case brix:      cout << "\t-> BRIX";
+		case brix:      output << "\t-> BRIX";
 		                break;
-		case mrc:       cout << "\t-> MRC";
+		case mrc:       output << "\t-> MRC";
 		                header_end  = 1024;
 		                if(*((char*)&norm) != (*header || *(header+1))) endian_swap = true;
 		                header_end += *(reinterpret_cast<int*>(read_32bit(header+92))); // add bytes of the extended header
 		                mrc_mode    = *(reinterpret_cast<int*>(read_32bit(header+12)));
 		                break;
 		default:
-		case automatic: cout << "\nERROR: Unknown map file type.\n";
+		case automatic:
+		                #pragma omp critical
+		                cout << output.str() << "\nERROR: Unknown map file type.\n";
 		                exit(42);
 	}
-	cout << (endian_swap ?" endian-swapped":"") << ", file size: " << filesize << "\n";
+	output << (endian_swap ?" endian-swapped":"") << ", file size: " << filesize << "\n";
 	
 	unsigned int data_count  = 0;
 	next_entry("origin");
@@ -252,14 +257,17 @@ inline std::vector<fp_num> read_map_to_grid(
 			case 2:  f_x_stride  <<= 2;
 			         f_xy_stride <<= 2;
 			         break;
-			default: cout << "ERROR: Only mode 0, 1, 2 are supported for CCP4/MRC map files.\n";
+			default: 
+			         #pragma omp critical
+			         cout << output.str() << "ERROR: Only mode 0, 1, 2 are supported for CCP4/MRC map files.\n";
 			         exit(33);
 		}
 		expected         = f_xy_stride * z_dim + header_end;
 	}
 	if(filesize < expected){
-		cout << "\nERROR: Map file size is too small based on header information (expected: " << expected << " Bytes).\n";
-		exit(5);
+		#pragma omp critical
+		cout << output.str() << "\nERROR: Map file size is too small based on header information (expected: " << expected << " Bytes).\n";
+		exit(3);
 	}
 	next_entry("grid");
 	fp_num inv_x_step        = read_entry(header, int);
@@ -316,9 +324,9 @@ inline std::vector<fp_num> read_map_to_grid(
 		beta            *= scale;
 		gamma           *= scale;
 	}
-	cout << "\t-> x_dim = " << x_dim << ", y_dim = " << y_dim << ", z_dim = " << z_dim << "\n";
-	cout << "\t-> a_unit = " << a_unit << ", b_unit = " << b_unit << ", c_unit = " << c_unit << "\n";
-	cout << "\t-> alpha = " << alpha << ", beta = " << beta << ", gamma = " << gamma << "\n";
+	output << "\t-> x_dim = " << x_dim << ", y_dim = " << y_dim << ", z_dim = " << z_dim << "\n";
+	output << "\t-> a_unit = " << a_unit << ", b_unit = " << b_unit << ", c_unit = " << c_unit << "\n";
+	output << "\t-> alpha = " << alpha << ", beta = " << beta << ", gamma = " << gamma << "\n";
 	
 	alpha                   *= PI / 180.0;
 	beta                    *= PI / 180.0;
@@ -348,22 +356,22 @@ inline std::vector<fp_num> read_map_to_grid(
 	// (r_x)   [ a  b*cos(gamma)              c*cos(beta) ]   (f_x)
 	// (r_y) = [ 0  b*sin(gamma)                     c*n  ] * (f_y)
 	// (r_z)   [ 0       0        c*sqrt(sin^2(beta)-n^2) ]   (f_z)
-	cout << "\t-> Fractional to cartesian conversion matrix:\n";
-	cout.precision(4);
-	cout.setf(ios::fixed, ios::floatfield);
-	cout << "\t\t" << std::setw(9) << a_unit << " " << std::setw(9) << b_unit*cos_gamma << " " << std::setw(9) << c_unit*cos_beta << "\n";
-	cout << "\t\t" << std::setw(9) << 0 << " " << std::setw(9) << b_unit*sin_gamma << " " << std::setw(9) << c_unit*n << "\n";
-	cout << "\t\t" << std::setw(9) << 0 << " " << std::setw(9) << 0 << " " << std::setw(9) << c_unit*sqrt_factor << "\n";
+	output << "\t-> Fractional to cartesian conversion matrix:\n";
+	output.precision(4);
+	output.setf(ios::fixed, ios::floatfield);
+	output << "\t\t" << std::setw(9) << a_unit << " " << std::setw(9) << b_unit*cos_gamma << " " << std::setw(9) << c_unit*cos_beta << "\n";
+	output << "\t\t" << std::setw(9) << 0 << " " << std::setw(9) << b_unit*sin_gamma << " " << std::setw(9) << c_unit*n << "\n";
+	output << "\t\t" << std::setw(9) << 0 << " " << std::setw(9) << 0 << " " << std::setw(9) << c_unit*sqrt_factor << "\n";
 	// inverse to go from cartesian to fractional:
 	// (f_x)   [ 1/a -1/a*cos(gamma)/sin(gamma)  1/a*(n*cos(gamma)/sin(gamma)-cos(beta))*1/sqrt(sin^2(beta)-n^2) ]   (r_x)
 	// (f_y) = [ 0             1/b*1/sin(gamma)                      -1/b*1/sin(gamma)*n*1/sqrt(sin^2(beta)-n^2) ] * (r_y)
 	// (f_z)   [ 0               0                                                   1/c*1/sqrt(sin^2(beta)-n^2) ]   (r_z)
-	cout << "\t-> Cartesian to fractional conversion matrix:\n";
-	cout.precision(4);
-	cout.setf(ios::fixed, ios::floatfield);
-	cout << "\t\t" << std::setw(9) << inv_a_unit << " " << std::setw(9) << -cos_inv_sin_gamma*inv_a_unit << " " << std::setw(9) << long_inv_term*inv_a_unit << "\n";
-	cout << "\t\t" << std::setw(9) << 0 << " " << std::setw(9) << inv_sin_gamma_b << " " << std::setw(9) << n_inv_sin_sqrt_b << "\n";
-	cout << "\t\t" << std::setw(9) << 0 << " " << std::setw(9) << 0 << " " << std::setw(9) << inv_sqrt_factor_c << "\n";
+	output << "\t-> Cartesian to fractional conversion matrix:\n";
+	output.precision(4);
+	output.setf(ios::fixed, ios::floatfield);
+	output << "\t\t" << std::setw(9) << inv_a_unit << " " << std::setw(9) << -cos_inv_sin_gamma*inv_a_unit << " " << std::setw(9) << long_inv_term*inv_a_unit << "\n";
+	output << "\t\t" << std::setw(9) << 0 << " " << std::setw(9) << inv_sin_gamma_b << " " << std::setw(9) << n_inv_sin_sqrt_b << "\n";
+	output << "\t\t" << std::setw(9) << 0 << " " << std::setw(9) << 0 << " " << std::setw(9) << inv_sqrt_factor_c << "\n";
 	// Make sure we have enough data
 	fp_num density_x_start = x_start * x_step;
 	fp_num density_y_start = y_start * y_step;
@@ -379,8 +387,8 @@ inline std::vector<fp_num> read_map_to_grid(
 	density_y_end         += y_origin;
 	density_z_start       += z_origin;
 	density_z_end         += z_origin;
-	cout.precision(4);
-	cout << "\t-> density coordinate range: (" << density_x_start << ", " << density_y_start << ", " << density_z_start << ") A to (" << density_x_end << ", " << density_y_end << ", " << density_z_end << ") A\n";
+	output.precision(4);
+	output << "\t-> density coordinate range: (" << density_x_start << ", " << density_y_start << ", " << density_z_start << ") A to (" << density_x_end << ", " << density_y_end << ", " << density_z_end << ") A\n";
 	fp_num map_x_start  = map_x_center - map_x_dim * grid_spacing * 0.5;
 	fp_num map_y_start  = map_y_center - map_y_dim * grid_spacing * 0.5;
 	fp_num map_z_start  = map_z_center - map_z_dim * grid_spacing * 0.5;
@@ -422,12 +430,15 @@ inline std::vector<fp_num> read_map_to_grid(
 	if(((bounding_x_start - density_x_start) < -MAPEPS) || ((bounding_y_start - density_y_start) < -MAPEPS) || ((bounding_z_start - density_z_start) < -MAPEPS) ||
 	   ((bounding_x_end   - density_x_end)   >  MAPEPS) || ((bounding_y_end   - density_y_end)   >  MAPEPS) || ((bounding_z_end   - density_z_end)   >  MAPEPS))
 	{
-		cout << "\nERROR: The specified grid box is (partially) outside of the file's density data.\n";
-		if(grid_align == NULL)
-			cout << "       Grid coordinate range: (" << map_x_start << ", " << map_y_start << ", " << map_z_start << ") A to (" << map_x_end << ", " << map_y_end << ", " << map_z_end << ") A\n";
-		else
-			cout << "       Grid bounding box: (" << bounding_x_start << ", " << bounding_y_start << ", " << bounding_z_start << ") A to (" << bounding_x_end << ", " << bounding_y_end << ", " << bounding_z_end << ") A\n";
-		exit(6);
+		#pragma omp critical
+		{
+			cout << output.str() << "\nERROR: The specified grid box is (partially) outside of the file's density data.\n";
+			if(grid_align == NULL)
+				cout << "       Grid coordinate range: (" << map_x_start << ", " << map_y_start << ", " << map_z_start << ") A to (" << map_x_end << ", " << map_y_end << ", " << map_z_end << ") A\n";
+			else
+				cout << "       Grid bounding box: (" << bounding_x_start << ", " << bounding_y_start << ", " << bounding_z_start << ") A to (" << bounding_x_end << ", " << bounding_y_end << ", " << bounding_z_end << ") A\n";
+		}
+		exit(4);
 	}
 	densities.resize(xy_stride*z_dim);
 	
@@ -498,19 +509,19 @@ inline std::vector<fp_num> read_map_to_grid(
 		rho_max -= rho_avg;
 		rho_max /= rho_std;
 	}
-	cout.precision(3);
-	cout << "\t-> density range: " << rho_min << " to " << rho_max << std::setprecision(6) << " (average: " << rho_avg << " +/- " << rho_std << ")\n";
+	output.precision(3);
+	output << "\t-> density range: " << rho_min << " to " << rho_max << std::setprecision(6) << " (average: " << rho_avg << " +/- " << rho_std << ")\n";
 	map_file.close();
 	double file_reading_ms = seconds_since(runtime)*1000.0;
-	cout.precision(3);
-	cout.setf(ios::fixed, ios::floatfield);
-	cout << "<- Finished reading densities, took " << file_reading_ms << " ms.\n\n";
+	output.precision(3);
+	output.setf(ios::fixed, ios::floatfield);
+	output << "<- Finished reading densities, took " << file_reading_ms << " ms.\n\n";
 	
-	cout << "Interpolating density data for " << map_x_dim << "x" << map_y_dim << "x" << map_z_dim << " grid (spacing: " << grid_spacing << " A)\n";
-	cout << "\t-> grid start:  (" << map_x_start << ", " << map_y_start << ", " << map_z_start << ") A\n";
-	cout << "\t-> grid size:   (" << map_x_dim * grid_spacing << ", " << map_y_dim * grid_spacing << ", " << map_z_dim * grid_spacing << ") A\n";
+	output << "Interpolating density data for " << map_x_dim << "x" << map_y_dim << "x" << map_z_dim << " grid (spacing: " << grid_spacing << " A)\n";
+	output << "\t-> grid start:  (" << map_x_start << ", " << map_y_start << ", " << map_z_start << ") A\n";
+	output << "\t-> grid size:   (" << map_x_dim * grid_spacing << ", " << map_y_dim * grid_spacing << ", " << map_z_dim * grid_spacing << ") A\n";
 	if(grid_align != NULL)
-		cout << "\t-> grid bounding box: (" << bounding_x_start << ", " << bounding_y_start << ", " << bounding_z_start << ") A to (" << bounding_x_end << ", " << bounding_y_end << ", " << bounding_z_end << ") A\n";
+		output << "\t-> grid bounding box: (" << bounding_x_start << ", " << bounding_y_start << ", " << bounding_z_start << ") A to (" << bounding_x_end << ", " << bounding_y_end << ", " << bounding_z_end << ") A\n";
 	
 	fp_num grid_a, grid_b, grid_c, density;
 	std::vector<fp_num> grid_map;
@@ -528,7 +539,7 @@ inline std::vector<fp_num> read_map_to_grid(
 	
 	fp_num* density_data = densities.data();
 	fp_num* data_point;
-	rho_min = 0;
+	rho_min = 1e80;
 	rho_max = 0;
 	for(unsigned int z = 0; z <= map_z_dim; z++){
 		for(unsigned int y = 0; y <= map_y_dim; y++){
@@ -561,7 +572,7 @@ inline std::vector<fp_num> read_map_to_grid(
 				ga     = (grid_a - density_x_start) / (x_step * a_unit);
 				gb     = (grid_b - density_y_start) / (y_step * b_unit);
 				gc     = (grid_c - density_z_start) / (z_step * c_unit);
-				cout << grid_a << ":" << ga << " ; " << grid_b << ":" << gb << " ; " << grid_c << ":" << gc << "\n";
+				output << grid_a << ":" << ga << " ; " << grid_b << ":" << gb << " ; " << grid_c << ":" << gc << "\n";
 #endif
 				// Getting coordinates
 				unsigned int x_low  = grid_a; // conversion to integer always truncates float
@@ -604,7 +615,9 @@ inline std::vector<fp_num> read_map_to_grid(
 	}
 	grid_map[8] = rho_min;
 	grid_map[9] = rho_max;
-	cout << "<- Finished interpolating grid map, took " << seconds_since(runtime)*1000.0 - file_reading_ms << " ms.\n\n";
+	output << "<- Finished interpolating grid map, took " << seconds_since(runtime)*1000.0 - file_reading_ms << " ms.\n\n";
+	#pragma omp critical
+	cout << output.str();
 	
 	return grid_map;
 }

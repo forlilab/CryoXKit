@@ -61,5 +61,19 @@ void write_grid_maps(
                      int write_type = write_grid_ad4
                     );
 
+std::vector<fp_num> average_densities_to_grid(
+                                              std::vector<std::string> map_files,
+                                              std::vector<std::string> map_receptors,
+                                                          std::string  align_rec,
+                                                       int map_type,
+                                              unsigned int map_x_dim,
+                                              unsigned int map_y_dim,
+                                              unsigned int map_z_dim,
+                                              fp_num       map_x_center,
+                                              fp_num       map_y_center,
+                                              fp_num       map_z_center,
+                                              fp_num       grid_spacing
+                                             );
+
 #endif // INCLUDED_CRYO2GRID
 

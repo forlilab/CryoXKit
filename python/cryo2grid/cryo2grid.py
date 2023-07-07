@@ -12,25 +12,25 @@ import sys
 from .cryo2grid_wrapper import *
 
 class Cryo2Grid:
-    def __init__(self, map_file=None, map_receptor=None):
+    def __init__(self, map_files=None, map_receptors=None):
         """Initialize the Cryo2Grid object.
 
         Arguments:
             map_file (str): Map (X-ray or CryoEM) file name
 
         """
-        self._map_file     = map_file
-        self._map_receptor = map_receptor
-        self._align_rec    = ''
-        self._map_x_dim    = None
-        self._map_y_dim    = None
-        self._map_z_dim    = None
-        self._map_x_center = None
-        self._map_y_center = None
-        self._map_z_center = None
-        self._grid_spacing = None
-        self._grid_files   = None
-        self._gridmaps     = None
+        self._map_files     = map_files
+        self._map_receptors = map_receptors
+        self._align_rec     = ''
+        self._map_x_dim     = None
+        self._map_y_dim     = None
+        self._map_z_dim     = None
+        self._map_x_center  = None
+        self._map_y_center  = None
+        self._map_z_center  = None
+        self._grid_spacing  = None
+        self._grid_files    = None
+        self._gridmaps      = None
     
     def ReadGridMaps(self, gridmap_files):
         """Read AD4 grid maps.
@@ -65,11 +65,13 @@ class Cryo2Grid:
             raise RuntimeError('ERROR: No grid maps have been read yet.')
         write_grid_maps(density, self._gridmaps, self._grid_files, write_type);
     
-    def ReadMapFile(self, map_file=None, map_x_dim=None, map_y_dim=None, map_z_dim=None, map_x_center=None, map_y_center=None, map_z_center=None, grid_spacing=None, grid_align=None):
-        """Read Map (X-ray or CryoEM) file
+    def ReadMapFiles(self, map_files=None, map_receptors=None, align_rec=None, map_x_dim=None, map_y_dim=None, map_z_dim=None, map_x_center=None, map_y_center=None, map_z_center=None, grid_spacing=None):
+        """Read Map (X-ray or CryoEM) file(s)
 
         Arguments:
-            map_file (str): Map file name (code autodetects CCP4/MRC and DSN6/Brix formats)
+            map_files (str list): Density map filename(s) (code autodetects CCP4/MRC and DSN6/Brix formats)
+            map_receptors (str list): Density map receptor filename(s) (if empty no alignement)
+            align_rec (str): Receptor to align density map receptor(s) to
             map_{x,y,z}_dim (int): Number of grid points in x,y,z-direction
             map_{x,y,z}_center (float): center vector of grid map
             grid_spacing(float): grid map spacing
@@ -78,10 +80,14 @@ class Cryo2Grid:
             - the grid map parameters will automatically be set when reading grid maps (see above) but will have to be specified otherwise
 
         """
-        if map_file is None:
-            map_file=self._map_file
-        if map_file is None:
+        if map_files is None:
+            map_files=self._map_files
+        if map_files is None:
             raise RuntimeError('ERROR: No Map file specified.')
+        if map_receptors is None:
+            map_receptors=self._map_receptors
+        if align_rec is None:
+            align_rec=self._align_rec
         if map_x_dim is None:
             map_x_dim=int(self._map_x_dim)
         if map_x_dim is None:
@@ -110,13 +116,7 @@ class Cryo2Grid:
             grid_spacing=self._grid_spacing
         if grid_spacing is None:
             raise RuntimeError('ERROR: Grid map spacing not set.')
-        if grid_align is None:
-            if self._map_receptor is not None:
-                map_rec = self._map_receptor
-                align_rec = self._align_rec
-                grid_align = align_pdb_atoms(map_rec, align_rec, map_x_dim, map_y_dim, map_z_dim, map_x_center, map_y_center, map_z_center, grid_spacing)
-        
-        density = read_map_to_grid(map_file, 0, map_x_dim, map_y_dim, map_z_dim, map_x_center, map_y_center, map_z_center, grid_spacing, grid_align)
+        density = average_densities_to_grid(map_files, map_receptors, align_rec, 0, map_x_dim, map_y_dim, map_z_dim, map_x_center, map_y_center, map_z_center, grid_spacing)
         return density;
 
     def ModifyDensity(self, density, log_max=-3.0, rate=2.0, x0=0.5):
