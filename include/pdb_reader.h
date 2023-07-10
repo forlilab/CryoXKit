@@ -341,6 +341,10 @@ inline fp_num* align_pdb_atoms(
 		center += location;
 		count++;
 	}
+	if(count == 0){ // this really shouldn't happen but better say something if it were to ...
+		cout << "ERROR: Failed to match atoms between density map and grid map receptor. Please file a bug report.\n";
+		exit(3);
+	}
 	center /= count;
 	unsigned int closest = 0;
 	fp_num closest_dist2 = 1e8;
@@ -407,7 +411,7 @@ inline fp_num* align_pdb_atoms(
 	if(cew.Im()*cew.Im()>EPS){ // shouldn't happen
 		#pragma omp critical
 		cout << output.str() << "ERROR: BB^T eigenvalues need to be real.\n";
-		exit(3);
+		exit(4);
 	}
 	Vec3<double> ew = cew.Re();
 	U = BBT.Eigenvectors(ew, true); // make sure to normalize eigenvalues
@@ -417,7 +421,7 @@ inline fp_num* align_pdb_atoms(
 	if(cew.Im()*cew.Im()>EPS){ // shouldn't happen
 		#pragma omp critical
 		cout << output.str() << "ERROR: B^TB eigenvalues need to be real.\n";
-		exit(4);
+		exit(5);
 	}
 	ew = cew.Re();
 	V = BTB.Eigenvectors(ew, true); // make sure to normalize eigenvalues
