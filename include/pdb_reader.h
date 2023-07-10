@@ -342,7 +342,8 @@ inline fp_num* align_pdb_atoms(
 		count++;
 	}
 	if(count == 0){ // this really shouldn't happen but better say something if it were to ...
-		cout << "ERROR: Failed to match atoms between density map and grid map receptor. Please file a bug report.\n";
+		#pragma omp critical
+		cout << output.str() << "ERROR: Failed to match atoms between density map and grid map receptor. Please file a bug report.\n";
 		exit(3);
 	}
 	center /= count;
