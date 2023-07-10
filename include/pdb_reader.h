@@ -35,15 +35,32 @@ using namespace std;
 // ATOM      1  N   SER A   1      -2.367   4.481 -16.909  1.00  1.00     0.185 N
 typedef struct
 {
-	bool         hetatm;       // false (wether first field is "HETATM" or not)
-	char         name[5];      // "N"
-	char         alt_id;       // ' '
-	char         res_name[4];  // "SER"
-	char         chain_id;     // 'A'
-	unsigned int res_id;       // 1
-	float        x,y,z;        // -2.367, 4.481, -16.909
-	char         atom_type[4]; // "N"
+	bool         hetatm;           // false (wether first field is "HETATM" or not)
+	char         name[5];          // "N"
+	char         alt_id;           // ' '
+	char         res_name[4];      // "SER"
+	char         chain_id;         // 'A'
+	unsigned int res_id;           // 1
+	float        x,y,z;            // -2.367, 4.481, -16.909
+	char         atom_type[4];     // "N"
+	unsigned int atom_type_number; //  7 (recognized types are > 0; unrecognized 0)
 } PDBatom;
+
+#define AD_RECOGNIZED_TYPES 30
+inline unsigned int find_atom_type_number(char* type)
+{
+	const char* ad_atom_types[AD_RECOGNIZED_TYPES]               = {"C", "A", "CG", "G", "CX", "N", "NA", "NS", "NX", "O", "OA", "OS", "OX", "H", "HD", "HS", "S", "SA", "F", "P", "CL", "CA", "MG", "MN", "FE", "ZN", "BR", "I", "SI", "B"};
+	const unsigned int ad_atom_type_numbers[AD_RECOGNIZED_TYPES] = { 6 ,  6 ,   6 ,  6 ,   6 ,  7 ,   7 ,   7 ,   7 ,  8 ,   8 ,   8 ,   8 ,  1 ,   1 ,   1 , 16 ,  16 ,  9 , 15 ,  17 ,  20 ,  12 ,  25 ,  26 ,  29 ,  35 , 53 ,  14 ,  5 };
+	unsigned int tlen = strlen(type);
+	if(tlen == 0) return 0;
+	for(unsigned int i=0; i<AD_RECOGNIZED_TYPES; i++){
+		if((type[0] == (ad_atom_types[i])[0]) &&
+		   (type[1] == (ad_atom_types[i])[1])){ // even if the type string is one letter, we can compare trailing '\0' character
+			return ad_atom_type_numbers[i];
+		}
+	}
+	return 0;
+}
 
 inline bool point_in_box(
                          Vec3<fp_num> point,
@@ -98,6 +115,7 @@ inline std::vector<PDBatom> read_pdb_atoms(
 			range_trim_to_char(line, 17, 20, current.res_name);
 			current.chain_id = line[21];
 			range_trim_to_char(line, 80, 83, current.atom_type); // reading atom type
+			current.atom_type_number = find_atom_type_number(current.atom_type);
 			line[26]='\0'; // make sure res_id only 4 digits
 			sscanf(&line.c_str()[22], "%d", &(current.res_id));
 			atoms.push_back(current);
@@ -147,7 +165,7 @@ inline fp_num* align_pdb_atoms(
 	for(unsigned int i=0; i<grid_atoms.size(); i++){
 		curr_resid = grid_atoms[i].res_id;
 		// only focus on heavy atoms of large molecules in pdb(qt) with no alternative coordinates
-		if((grid_atoms[i].alt_id==' ') && (grid_atoms[i].hetatm == false) && (grid_atoms[i].atom_type[0] != 'H'))
+		if((grid_atoms[i].alt_id==' ') && (grid_atoms[i].hetatm == false) && (grid_atoms[i].atom_type_number > 1))
 		{
 			location.vec[0] = grid_atoms[i].x; location.vec[1] = grid_atoms[i].y; location.vec[2] = grid_atoms[i].z;
 			if(!use_grid_box || point_in_box(location - grid_start, grid_dims)){
@@ -170,7 +188,7 @@ inline fp_num* align_pdb_atoms(
 	std::vector<unsigned int> grid_res_start, grid_res_idx, grid_res_num;
 	std::vector<Vec3<fp_num>> grid_res_center;
 	curr_resid         = grid_atoms[grid_ids[0]].res_id + 1;
-	char curr_chain_id = grid_atoms[grid_ids[0]].chain_id + 1;
+	char curr_chain_id = grid_atoms[grid_ids[0]].chain_id;
 	for(unsigned int i = 0; i < grid_ids.size(); i++){
 		location.vec[0] = grid_atoms[grid_ids[i]].x;
 		location.vec[1] = grid_atoms[grid_ids[i]].y;
@@ -208,19 +226,19 @@ inline fp_num* align_pdb_atoms(
 	std::vector<unsigned int> grid_type;
 	std::vector<unsigned int> candidates;
 	std::vector<fp_num> cross_dist2;
-	char* curr_atom_type;
+	unsigned curr_atom_type;
 	for(unsigned int r=0; r<grid_res_num.size(); r++){ // go over all residues in grid
 		unsigned int i = grid_res_start[r];
 		while(i < grid_res_start[r+1]){
 			grid_type.clear();
 			grid_type.push_back(i);
-			curr_atom_type = grid_atoms[grid_ids[i]].atom_type;
+			curr_atom_type = grid_atoms[grid_ids[i]].atom_type_number;
 			curr_chain_id  = grid_atoms[grid_ids[i]].chain_id;
 			curr_resid     = grid_atoms[grid_ids[i]].res_id;
 			int next_id = -1;
 			while(++i < grid_res_start[r+1]){
 				if(assignment[i] == 0){
-					if(strcmp(curr_atom_type, grid_atoms[grid_ids[i]].atom_type) == 0){
+					if(curr_atom_type == grid_atoms[grid_ids[i]].atom_type_number){
 						grid_type.push_back(i);
 						assignment[i] = 1;
 					} else next_id = (next_id < 0) ? i : next_id;
@@ -235,14 +253,14 @@ inline fp_num* align_pdb_atoms(
 			for(unsigned int j=0; j<map_atoms.size(); j++){
 				if((map_atoms[j].alt_id   == ' ') &&
 				   (map_atoms[j].hetatm   == false) &&
-				   (map_atoms[j].atom_type[0] != 'H') &&
+				   (map_atoms[j].atom_type_number > 1) &&
 				   (map_atoms[j].res_id   == curr_resid) &&
 				   (map_atoms[j].chain_id == curr_chain_id)){
 					map_res_center.vec[0] += map_atoms[j].x;
 					map_res_center.vec[1] += map_atoms[j].y;
 					map_res_center.vec[2] += map_atoms[j].z;
 					map_res_count++;
-					if(strcmp(map_atoms[j].atom_type, curr_atom_type) == 0){
+					if(map_atoms[j].atom_type_number == curr_atom_type){
 						candidates.push_back(j);
 					}
 				}
@@ -306,6 +324,9 @@ inline fp_num* align_pdb_atoms(
 					candidates.erase(candidates.begin() + closest_k);
 				}
 			} else{ // if no candidate atoms are found for the given residue (i.e. only alt_id atoms or no atoms) exclude residue
+#if DEBUG_LEVEL>3
+				cout << "No matching " << grid_atoms[grid_ids[grid_type[0]]].atom_type << " candidates for res #" << r+1 << " (" << candidates.size() << " vs. " << grid_type.size() << ")\n";
+#endif
 				for(i = grid_res_start[r]; i < grid_res_start[r+1]; i++) grid_ids[i] = -1;
 				i = grid_res_start[r+1];
 			}
