@@ -168,6 +168,19 @@ inline int determine_map_type(char* &header)
 	return map_type;
 }
 
+inline void apply_periodicity(
+                              fp_num len,
+                              fp_num &r
+                             )
+{
+	if(r > len){
+		r -= len;
+		while(r > len) r -= len;
+		return;
+	}
+	while(r < 0) r += len;
+}
+
 inline std::vector<fp_num> read_map_to_grid(
                                             std::string  filename,
                                                      int map_type,
@@ -178,7 +191,8 @@ inline std::vector<fp_num> read_map_to_grid(
                                             fp_num       map_y_center,
                                             fp_num       map_z_center,
                                             fp_num       grid_spacing,
-                                            fp_num*      grid_align = NULL
+                                            bool         repeat_unit_cell = true,
+                                            fp_num*      grid_align       = NULL
                                            )
 {
 	timeval runtime;
@@ -388,7 +402,7 @@ inline std::vector<fp_num> read_map_to_grid(
 	density_z_start       += z_origin;
 	density_z_end         += z_origin;
 	output.precision(4);
-	output << "\t-> density coordinate range: (" << density_x_start << ", " << density_y_start << ", " << density_z_start << ") A to (" << density_x_end << ", " << density_y_end << ", " << density_z_end << ") A\n";
+	output << "\t-> density unit cell range: (" << density_x_start << ", " << density_y_start << ", " << density_z_start << ") A to (" << density_x_end << ", " << density_y_end << ", " << density_z_end << ") A\n";
 	fp_num map_x_start  = map_x_center - map_x_dim * grid_spacing * 0.5;
 	fp_num map_y_start  = map_y_center - map_y_dim * grid_spacing * 0.5;
 	fp_num map_z_start  = map_z_center - map_z_dim * grid_spacing * 0.5;
@@ -427,8 +441,9 @@ inline std::vector<fp_num> read_map_to_grid(
 		}
 	}
 	// test if there is data for our grid box
-	if(((bounding_x_start - density_x_start) < -MAPEPS) || ((bounding_y_start - density_y_start) < -MAPEPS) || ((bounding_z_start - density_z_start) < -MAPEPS) ||
-	   ((bounding_x_end   - density_x_end)   >  MAPEPS) || ((bounding_y_end   - density_y_end)   >  MAPEPS) || ((bounding_z_end   - density_z_end)   >  MAPEPS))
+	if(repeat_unit_cell &&
+	   (((bounding_x_start - density_x_start) < -MAPEPS) || ((bounding_y_start - density_y_start) < -MAPEPS) || ((bounding_z_start - density_z_start) < -MAPEPS) ||
+	   ((bounding_x_end   - density_x_end)   >  MAPEPS) || ((bounding_y_end   - density_y_end)   >  MAPEPS) || ((bounding_z_end   - density_z_end)   >  MAPEPS)))
 	{
 		#pragma omp critical
 		{
@@ -568,6 +583,11 @@ inline std::vector<fp_num> read_map_to_grid(
 				grid_a -= x_start;
 				grid_b -= y_start;
 				grid_c -= z_start;
+				if(repeat_unit_cell){
+					apply_periodicity(x_dim, grid_a);
+					apply_periodicity(y_dim, grid_b);
+					apply_periodicity(z_dim, grid_c);
+				}
 #ifdef MGLTOOLS_MATH_COMPARISON
 				ga     = (grid_a - density_x_start) / (x_step * a_unit);
 				gb     = (grid_b - density_y_start) / (y_step * b_unit);

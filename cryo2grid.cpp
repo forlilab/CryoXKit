@@ -139,7 +139,8 @@ std::vector<fp_num> average_densities_to_grid(
                                               fp_num       map_x_center,
                                               fp_num       map_y_center,
                                               fp_num       map_z_center,
-                                              fp_num       grid_spacing
+                                              fp_num       grid_spacing,
+                                              bool         repeat_unit_cell
                                              )
 {
 	if(map_files.size() < 1){
@@ -174,6 +175,7 @@ std::vector<fp_num> average_densities_to_grid(
 		                                map_y_center,
 		                                map_z_center,
 		                                grid_spacing,
+		                                repeat_unit_cell,
 		                                grid_align
 		                               );
 		if(grid_align != NULL) delete[] grid_align;
@@ -330,7 +332,8 @@ int main(int argc, const char* argv[])
 	                                                        X_center,
 	                                                        Y_center,
 	                                                        Z_center,
-	                                                        grid_spacing
+	                                                        grid_spacing,
+	                                                        true
 	                                                       );
 	
 	std::vector<fp_num> modified = modify_densities(

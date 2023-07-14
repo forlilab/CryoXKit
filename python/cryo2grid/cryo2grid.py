@@ -12,7 +12,7 @@ import sys
 from .cryo2grid_wrapper import *
 
 class Cryo2Grid:
-    def __init__(self, map_files=None, map_receptors=None):
+    def __init__(self, map_files=None, map_receptors=None, repeat_unit_cell=True):
         """Initialize the Cryo2Grid object.
 
         Arguments:
@@ -21,6 +21,7 @@ class Cryo2Grid:
         """
         self._map_files     = map_files
         self._map_receptors = map_receptors
+        self._repeat_unit   = repeat_unit_cell
         self._align_rec     = ''
         self._map_x_dim     = None
         self._map_y_dim     = None
@@ -116,7 +117,7 @@ class Cryo2Grid:
             grid_spacing=self._grid_spacing
         if grid_spacing is None:
             raise RuntimeError('ERROR: Grid map spacing not set.')
-        density = average_densities_to_grid(map_files, map_receptors, align_rec, 0, map_x_dim, map_y_dim, map_z_dim, map_x_center, map_y_center, map_z_center, grid_spacing)
+        density = average_densities_to_grid(map_files, map_receptors, align_rec, 0, map_x_dim, map_y_dim, map_z_dim, map_x_center, map_y_center, map_z_center, grid_spacing, self._repeat_unit)
         return density;
 
     def ModifyDensity(self, density, log_max=-3.0, rate=2.0, x0=0.5):
