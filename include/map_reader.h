@@ -441,7 +441,7 @@ inline std::vector<fp_num> read_map_to_grid(
 		}
 	}
 	// test if there is data for our grid box
-	if(repeat_unit_cell &&
+	if(!repeat_unit_cell &&
 	   (((bounding_x_start - density_x_start) < -MAPEPS) || ((bounding_y_start - density_y_start) < -MAPEPS) || ((bounding_z_start - density_z_start) < -MAPEPS) ||
 	   ((bounding_x_end   - density_x_end)   >  MAPEPS) || ((bounding_y_end   - density_y_end)   >  MAPEPS) || ((bounding_z_end   - density_z_end)   >  MAPEPS)))
 	{
