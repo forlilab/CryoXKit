@@ -121,6 +121,7 @@ void write_grid_maps(
 			           grid_maps[i].data(),
 			           grid_files[i],
 			           write_type,
+			           0,
 			           false
 			          );
 		}

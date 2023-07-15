@@ -48,13 +48,11 @@ inline void write_grid_map_ad4(
                                fp_num       map_y_center,
                                fp_num       map_z_center,
                                fp_num       grid_spacing,
-                               bool         set_extension = true
+                               unsigned int running_nr = 0
                               )
 {
-	if(set_extension){
-		std::size_t ext = filename.find_last_of(".");
-		filename = filename.substr(0, ext) + ".map";
-	}
+	std::size_t ext = filename.find_last_of(".");
+	filename = filename.substr(0, ext) + ".mod" + ((running_nr>0)?"."+to_string(running_nr):"") + ".map";
 #ifdef PARALLELIZE
 	#pragma omp critical
 #endif
@@ -96,13 +94,11 @@ inline void write_grid_map_mrc(
                                fp_num       grid_spacing,
                                fp_num       rho_min       = -1,
                                fp_num       rho_max       =  1,
-                               bool         set_extension = true
+                               unsigned int running_nr = 0
                               )
 {
-	if(set_extension){
-		std::size_t ext = filename.find_last_of(".");
-		filename = filename.substr(0, ext) + ".grid.mrc";
-	}
+	std::size_t ext = filename.find_last_of(".");
+	filename = filename.substr(0, ext) + ".mod" + ((running_nr>0)?"."+to_string(running_nr):"") + ".mrc";
 #ifdef PARALLELIZE
 	#pragma omp critical
 #endif
@@ -183,8 +179,9 @@ inline void write_grid_map_mrc(
 
 inline void write_grid(
                        fp_num*      grid_map,
-                       std::string &filename,
+                       std::string  filename,
                        int          write_mode = write_grid_ad4,
+                       unsigned int running_nr = 0,
                        bool         timing     = true
                       )
 {
@@ -201,7 +198,7 @@ inline void write_grid(
 		                                        grid_map[5],
 		                                        grid_map[6],
 		                                        grid_map[7],
-		                                        true
+		                                        running_nr
 		                                       );
 		                     if(timing) cout << "<- Finished writing, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
 		                     break;
@@ -217,7 +214,7 @@ inline void write_grid(
 		                                        grid_map[7],
 		                                        grid_map[8],
 		                                        grid_map[9],
-		                                        true
+		                                        running_nr
 		                                       );
 		                     if(timing) cout << "<- Finished writing, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
 		default:             break;

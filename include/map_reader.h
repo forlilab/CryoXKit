@@ -173,7 +173,7 @@ inline void apply_periodicity(
                               fp_num &r
                              )
 {
-	if(r > len){
+	if(r >= len){
 		r -= len;
 		while(r > len) r -= len;
 		return;
@@ -619,10 +619,17 @@ inline std::vector<fp_num> read_map_to_grid(
 				/*        4 - - - - 5                  */
 				/*       /                             */
 				/*      X                              */
-				density = omdz * (omdy * (data_point[0]*omdx + data_point[1]*dx) +
-				                    dy * (data_point[x_dim]*omdx + data_point[x_dim + 1]*dx)) +
-				          dz   * (omdy * (data_point[xy_stride]*omdx + data_point[xy_stride + 1]*dx) +
-				                    dy * (data_point[x_dim + xy_stride]*omdx + data_point[x_dim + xy_stride + 1]*dx));
+				int x_high = x_dim - 1;
+				x_high = ((int)x_low < x_high) ? 1 : -x_high;
+				int y_high = y_dim - 1;
+				y_high = ((int)y_low < y_high) ? x_dim : -y_high*x_dim;
+				int z_high = z_dim - 1;
+				z_high = ((int)z_low < z_high) ? xy_stride : -z_high*xy_stride;
+				
+				density = omdz * (omdy * (data_point[0]               * omdx + data_point[x_high]                   * dx) +
+				                    dy * (data_point[y_high]          * omdx + data_point[x_high + y_high]          * dx)) +
+				          dz   * (omdy * (data_point[z_high]          * omdx + data_point[x_high          + z_high] * dx) +
+				                    dy * (data_point[y_high + z_high] * omdx + data_point[x_high + y_high + z_high] * dx));
 				if(map_type == mrc){
 					density -= rho_avg;
 					density /= rho_std;
