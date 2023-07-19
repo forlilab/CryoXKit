@@ -87,8 +87,12 @@ class Cryo2Grid:
             raise RuntimeError('ERROR: No Map file specified.')
         if map_receptors is None:
             map_receptors=self._map_receptors
+        if map_receptors is None: # if it's still None, we need to pass an empty string in the list
+            map_receptors = ['']
         if align_rec is None:
             align_rec=self._align_rec
+        if align_rec is None: # if it's still None, we need to pass an empty string in the list
+            align_rec = ''
         if map_x_dim is None:
             map_x_dim=int(self._map_x_dim)
         if map_x_dim is None:
