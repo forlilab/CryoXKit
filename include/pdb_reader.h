@@ -135,7 +135,7 @@ inline fp_num* align_pdb_atoms(
                                fp_num      map_y_center,
                                fp_num      map_z_center,
                                fp_num      grid_spacing
-                          )
+                              )
 {
 	timeval runtime;
 	start_timer(runtime);
@@ -318,14 +318,15 @@ inline fp_num* align_pdb_atoms(
 					cross_dist2.erase(cross_dist2.begin(), cross_dist2.begin() + cs);
 					map_match[grid_type[closest_l]] = candidates[closest_k];
 #if DEBUG_LEVEL>3
-					output << grid_ids[grid_type[closest_l]]+1 << " -> " << candidates[closest_k]+1 << "\n";
+					output << grid_ids[grid_type[closest_l]]+1 << " " << grid_atoms[grid_ids[grid_type[closest_l]]].name << " " << grid_atoms[grid_ids[grid_type[closest_l]]].res_name << " " << grid_atoms[grid_ids[grid_type[closest_l]]].chain_id << " " << grid_atoms[grid_ids[grid_type[closest_l]]].res_id
+					       << " -> " << candidates[closest_k]+1 << " " << map_atoms[candidates[closest_k]].name << " " << map_atoms[candidates[closest_k]].res_name << " " << map_atoms[candidates[closest_k]].chain_id << " " << map_atoms[candidates[closest_k]].res_id << "\n";
 #endif
 					grid_type.erase(grid_type.begin() + closest_l);
 					candidates.erase(candidates.begin() + closest_k);
 				}
 			} else{ // if no candidate atoms are found for the given residue (i.e. only alt_id atoms or no atoms) exclude residue
 #if DEBUG_LEVEL>3
-				cout << "No matching " << grid_atoms[grid_ids[grid_type[0]]].atom_type << " candidates for res #" << r+1 << " (" << candidates.size() << " vs. " << grid_type.size() << ")\n";
+				output << "No matching " << grid_atoms[grid_ids[grid_type[0]]].atom_type << " candidates for res #" << grid_atoms[grid_ids[grid_type[0]]].res_id << " (" << grid_type.size() << " vs. " << candidates.size() << ")\n";
 #endif
 				for(i = grid_res_start[r]; i < grid_res_start[r+1]; i++) grid_ids[i] = -1;
 				i = grid_res_start[r+1];
@@ -376,7 +377,7 @@ inline fp_num* align_pdb_atoms(
 	}
 	grid_center /= count;
 	map_center  /= count;
-	output << "\t-> Grid center: (" << grid_center.V3Str(',',4) << ")\n";
+	output << "\t-> Grid center (" << grid_atoms[grid_ids[closest]].res_name << " " << grid_atoms[grid_ids[closest]].chain_id << " #" << grid_atoms[grid_ids[closest]].res_id << "): (" << grid_center.V3Str(',',4) << ")\n";
 	output << "\t-> Map center:  (" << map_center.V3Str(',',4) << ")\n";
 	Mat33<double> B, BTB, BBT, U, V, M;
 	B.M3Zeros();
@@ -426,6 +427,7 @@ inline fp_num* align_pdb_atoms(
 	}
 	ew = cew.Re();
 	V = BTB.Eigenvectors(ew, true); // make sure to normalize eigenvalues
+	M.M3Eye();
 	M.mat[2][2] = U.M3Det() * V.M3Det();
 	Mat33<fp_num> grid_rot;
 	grid_rot = V * (M * U.M3Transpose());
@@ -439,8 +441,7 @@ inline fp_num* align_pdb_atoms(
 	fp_num rmsd = 0;
 	count = 0;
 	for(unsigned int i=0; i<grid_ids.size(); i++){
-		if(grid_ids[i]<0) continue;
-		count++;
+		if(grid_ids[i] < 0) continue; // only count the ones we're trying to match
 		location.vec[0] = map_atoms[map_match[i]].x;
 		location.vec[1] = map_atoms[map_match[i]].y;
 		location.vec[2] = map_atoms[map_match[i]].z;
@@ -453,7 +454,7 @@ inline fp_num* align_pdb_atoms(
 		output.fill(' ');
 		output.setf(ios::fixed, ios::floatfield);
 		output << "ATOM  ";
-		output << std::setw(5) << count << "  ";
+		output << std::setw(5) << i+1 << "  ";
 		std::string str = map_atoms[map_match[i]].name;
 		str.resize(4,' ');
 		output << str << std::setw(3) << map_atoms[map_match[i]].res_name << " ";

@@ -16,7 +16,5 @@ args = parser.parse_args()
 c2g = Cryo2Grid(args.map_file, args.map_receptor, args.repeat_unit_cell)
 grid_maps = c2g.ReadGridMaps(args.grid_maps)
 density   = c2g.ReadMapFiles()
-c2g.WriteGridMaps(density, 1)
 modified  = c2g.ModifyDensity(density, args.log_min, args.log_slope, args.log_x0)
-# c2g.WriteGridMaps(modified, 1)
-
+c2g.WriteGridMaps(modified, 1)
