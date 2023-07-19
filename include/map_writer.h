@@ -52,7 +52,7 @@ inline void write_grid_map_ad4(
                               )
 {
 	std::size_t ext = filename.find_last_of(".");
-	filename = filename.substr(0, ext) + ".mod" + ((running_nr>0)?"."+to_string(running_nr):"") + ".map";
+	filename = filename.substr(0, ext) + ((running_nr>0)?"."+to_string(running_nr):"") + ".map";
 #ifdef PARALLELIZE
 	#pragma omp critical
 #endif
@@ -98,7 +98,7 @@ inline void write_grid_map_mrc(
                               )
 {
 	std::size_t ext = filename.find_last_of(".");
-	filename = filename.substr(0, ext) + ".mod" + ((running_nr>0)?"."+to_string(running_nr):"") + ".mrc";
+	filename = filename.substr(0, ext) + ".grid" + ((running_nr>0)?"."+to_string(running_nr):"") + ".mrc";
 #ifdef PARALLELIZE
 	#pragma omp critical
 #endif
