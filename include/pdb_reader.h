@@ -161,6 +161,7 @@ inline fp_num* align_pdb_atoms(
 	Vec3<fp_num> location;
 	std::vector<int> grid_ids;
 	unsigned int curr_resid;
+	char curr_chain_id;
 	// Calculate heavy atom geometric center of atoms in grid box or of all if there is no grid box
 	for(unsigned int i=0; i<grid_atoms.size(); i++){
 		curr_resid = grid_atoms[i].res_id;
@@ -187,13 +188,13 @@ inline fp_num* align_pdb_atoms(
 	// compile a list of grid residue centers (and corresponding ids and how many atoms)
 	std::vector<unsigned int> grid_res_start, grid_res_idx, grid_res_num;
 	std::vector<Vec3<fp_num>> grid_res_center;
-	curr_resid         = grid_atoms[grid_ids[0]].res_id + 1;
-	char curr_chain_id = grid_atoms[grid_ids[0]].chain_id;
+	curr_resid    = grid_atoms[grid_ids[0]].res_id + 1;
+	curr_chain_id = grid_atoms[grid_ids[0]].chain_id;
 	for(unsigned int i = 0; i < grid_ids.size(); i++){
 		location.vec[0] = grid_atoms[grid_ids[i]].x;
 		location.vec[1] = grid_atoms[grid_ids[i]].y;
 		location.vec[2] = grid_atoms[grid_ids[i]].z;
-		if((curr_resid != grid_atoms[grid_ids[i]].res_id) ||
+		if((curr_resid    != grid_atoms[grid_ids[i]].res_id) ||
 		   (curr_chain_id != grid_atoms[grid_ids[i]].chain_id)){
 			grid_res_start.push_back(i);
 			curr_resid = grid_atoms[grid_ids[i]].res_id;
@@ -442,6 +443,7 @@ inline fp_num* align_pdb_atoms(
 	count = 0;
 	for(unsigned int i=0; i<grid_ids.size(); i++){
 		if(grid_ids[i] < 0) continue; // only count the ones we're trying to match
+		count++;
 		location.vec[0] = map_atoms[map_match[i]].x;
 		location.vec[1] = map_atoms[map_match[i]].y;
 		location.vec[2] = map_atoms[map_match[i]].z;
@@ -454,7 +456,7 @@ inline fp_num* align_pdb_atoms(
 		output.fill(' ');
 		output.setf(ios::fixed, ios::floatfield);
 		output << "ATOM  ";
-		output << std::setw(5) << i+1 << "  ";
+		output << std::setw(5) << count << "  ";
 		std::string str = map_atoms[map_match[i]].name;
 		str.resize(4,' ');
 		output << str << std::setw(3) << map_atoms[map_match[i]].res_name << " ";
