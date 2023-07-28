@@ -125,80 +125,61 @@ inline std::vector<PDBatom> read_pdb_atoms(
 	return atoms;
 }
 
-inline fp_num* align_pdb_atoms(
-                               std::string map_ligand,
-                               std::string align_lig,
-                               int         map_x_dim,
-                               int         map_y_dim,
-                               int         map_z_dim,
-                               fp_num      map_x_center,
-                               fp_num      map_y_center,
-                               fp_num      map_z_center,
-                               fp_num      grid_spacing
-                              )
+inline std::vector<int> map_pdb_atoms(
+                                      std::vector<PDBatom> &ref_atoms,
+                                      char                  ref_chain_id,
+                                      std::vector<PDBatom> &align_atoms,
+                                      char                  align_chain_id,
+                                      int                   map_x_dim,
+                                      int                   map_y_dim,
+                                      int                   map_z_dim,
+                                      fp_num                map_x_center,
+                                      fp_num                map_y_center,
+                                      fp_num                map_z_center,
+                                      fp_num                grid_spacing
+                                     )
 {
-	timeval runtime;
-	start_timer(runtime);
-	stringstream output;
-	output << "Aligning density map receptor to grid receptor\n";
-	std::vector<PDBatom> map_atoms, grid_atoms;
-	output << "\t-> Reading density map receptor [" << map_ligand << "]\n";
-	map_atoms = read_pdb_atoms(map_ligand);
-	if(align_lig.length() != 0){
-		output << "\t-> Reading grid map receptor [" << align_lig << "]\n";
-		grid_atoms = read_pdb_atoms(align_lig);
-	} else{
-		#pragma omp critical
-		cout << output.str() << "ERROR: No receptor specified in grid map files.\n";
-		exit(1);
-	}
-	Vec3<fp_num> map_center, grid_center;
+	std::vector<int> atom_mapping;
+	std::vector<int> grid_ids;
 	bool use_grid_box = (map_x_dim > 0) && (map_y_dim > 0) && (map_z_dim > 0);
 	Vec3<fp_num> grid_dims;
 	grid_dims.vec[0] = map_x_dim * grid_spacing; grid_dims.vec[1] = map_y_dim * grid_spacing; grid_dims.vec[2] = map_z_dim * grid_spacing;
 	Vec3<fp_num> grid_start;
 	grid_start.vec[0] = map_x_center - grid_dims.vec[0] * 0.5; grid_start.vec[1] = map_y_center - grid_dims.vec[1] * 0.5; grid_start.vec[2] = map_z_center - grid_dims.vec[2] * 0.5;
 	Vec3<fp_num> location;
-	std::vector<int> grid_ids;
 	unsigned int curr_resid;
-	char curr_chain_id;
 	// Calculate heavy atom geometric center of atoms in grid box or of all if there is no grid box
-	for(unsigned int i=0; i<grid_atoms.size(); i++){
-		curr_resid = grid_atoms[i].res_id;
+	for(unsigned int i=0; i<align_atoms.size(); i++){
+		curr_resid = align_atoms[i].res_id;
 		// only focus on heavy atoms of large molecules in pdb(qt) with no alternative coordinates
-		if((grid_atoms[i].alt_id==' ') && (grid_atoms[i].hetatm == false) && (grid_atoms[i].atom_type_number > 1))
+		if((align_atoms[i].chain_id == align_chain_id) && (align_atoms[i].alt_id == ' ') && (align_atoms[i].hetatm == false) && (align_atoms[i].atom_type_number > 1))
 		{
-			location.vec[0] = grid_atoms[i].x; location.vec[1] = grid_atoms[i].y; location.vec[2] = grid_atoms[i].z;
+			location.vec[0] = align_atoms[i].x; location.vec[1] = align_atoms[i].y; location.vec[2] = align_atoms[i].z;
 			if(!use_grid_box || point_in_box(location - grid_start, grid_dims)){
 				grid_ids.push_back(i);
 			} else{ // make sure to exclude whole residue
 				// exclude already included atoms
-				while((grid_ids.size()>0) && (grid_atoms[grid_ids.back()].res_id == curr_resid))
+				while((grid_ids.size()>0) && (align_atoms[grid_ids.back()].res_id == curr_resid))
 					grid_ids.pop_back();
 				// fast-forward to end of residue
-				while((i+1<grid_atoms.size()) && (grid_atoms[i+1].res_id == curr_resid)) i++;
+				while((i+1<align_atoms.size()) && (align_atoms[i+1].res_id == curr_resid)) i++;
 			}
 		}
 	}
-	if(grid_ids.size() == 0){ // shouldn't happen
-		#pragma omp critical
-		cout << output.str() << "ERROR: No receptor atoms inside grid box. This likely means the wrong receptor is listed in the grid file.\n";
-		exit(2);
+	if(grid_ids.size() == 0){
+		return atom_mapping;
 	}
 	// compile a list of grid residue centers (and corresponding ids and how many atoms)
 	std::vector<unsigned int> grid_res_start, grid_res_idx, grid_res_num;
 	std::vector<Vec3<fp_num>> grid_res_center;
-	curr_resid    = grid_atoms[grid_ids[0]].res_id + 1;
-	curr_chain_id = grid_atoms[grid_ids[0]].chain_id;
+	curr_resid    = align_atoms[grid_ids[0]].res_id + 1;
 	for(unsigned int i = 0; i < grid_ids.size(); i++){
-		location.vec[0] = grid_atoms[grid_ids[i]].x;
-		location.vec[1] = grid_atoms[grid_ids[i]].y;
-		location.vec[2] = grid_atoms[grid_ids[i]].z;
-		if((curr_resid    != grid_atoms[grid_ids[i]].res_id) ||
-		   (curr_chain_id != grid_atoms[grid_ids[i]].chain_id)){
+		location.vec[0] = align_atoms[grid_ids[i]].x;
+		location.vec[1] = align_atoms[grid_ids[i]].y;
+		location.vec[2] = align_atoms[grid_ids[i]].z;
+		if(curr_resid    != align_atoms[grid_ids[i]].res_id){
 			grid_res_start.push_back(i);
-			curr_resid = grid_atoms[grid_ids[i]].res_id;
-			curr_chain_id = grid_atoms[grid_ids[i]].chain_id;
+			curr_resid    = align_atoms[grid_ids[i]].res_id;
 			grid_res_center.push_back(location);
 			grid_res_num.push_back(1);
 			grid_res_idx.push_back(grid_res_num.size()-1);
@@ -216,9 +197,9 @@ inline fp_num* align_pdb_atoms(
 	// match atoms from grid_ids to map atoms
 	std::vector<int> map_match;
 	for(unsigned int i=0; i<grid_ids.size(); i++){
-		location.vec[0] = grid_atoms[grid_ids[i]].x;
-		location.vec[1] = grid_atoms[grid_ids[i]].y;
-		location.vec[2] = grid_atoms[grid_ids[i]].z;
+		location.vec[0] = align_atoms[grid_ids[i]].x;
+		location.vec[1] = align_atoms[grid_ids[i]].y;
+		location.vec[2] = align_atoms[grid_ids[i]].z;
 		location       -= grid_res_center[grid_res_idx[i]];
 		grid_res_center_d2.push_back(location * location); // <- distance^2 of current grid atom from its residue's center
 		assignment.push_back(0);
@@ -233,13 +214,12 @@ inline fp_num* align_pdb_atoms(
 		while(i < grid_res_start[r+1]){
 			grid_type.clear();
 			grid_type.push_back(i);
-			curr_atom_type = grid_atoms[grid_ids[i]].atom_type_number;
-			curr_chain_id  = grid_atoms[grid_ids[i]].chain_id;
-			curr_resid     = grid_atoms[grid_ids[i]].res_id;
+			curr_atom_type = align_atoms[grid_ids[i]].atom_type_number;
+			curr_resid     = align_atoms[grid_ids[i]].res_id;
 			int next_id = -1;
 			while(++i < grid_res_start[r+1]){
 				if(assignment[i] == 0){
-					if(curr_atom_type == grid_atoms[grid_ids[i]].atom_type_number){
+					if(curr_atom_type == align_atoms[grid_ids[i]].atom_type_number){
 						grid_type.push_back(i);
 						assignment[i] = 1;
 					} else next_id = (next_id < 0) ? i : next_id;
@@ -251,17 +231,17 @@ inline fp_num* align_pdb_atoms(
 			unsigned int map_res_count = 0;
 			// container for atoms with the same name is the one we're looking for (should mostly only be one ... but you never know)
 			candidates.clear();
-			for(unsigned int j=0; j<map_atoms.size(); j++){
-				if((map_atoms[j].alt_id   == ' ') &&
-				   (map_atoms[j].hetatm   == false) &&
-				   (map_atoms[j].atom_type_number > 1) &&
-				   (map_atoms[j].res_id   == curr_resid) &&
-				   (map_atoms[j].chain_id == curr_chain_id)){
-					map_res_center.vec[0] += map_atoms[j].x;
-					map_res_center.vec[1] += map_atoms[j].y;
-					map_res_center.vec[2] += map_atoms[j].z;
+			for(unsigned int j=0; j<ref_atoms.size(); j++){
+				if((ref_atoms[j].alt_id   == ' ') &&
+				   (ref_atoms[j].hetatm   == false) &&
+				   (ref_atoms[j].atom_type_number > 1) &&
+				   (ref_atoms[j].res_id   == curr_resid) &&
+				   (ref_atoms[j].chain_id == ref_chain_id)){
+					map_res_center.vec[0] += ref_atoms[j].x;
+					map_res_center.vec[1] += ref_atoms[j].y;
+					map_res_center.vec[2] += ref_atoms[j].z;
 					map_res_count++;
-					if(map_atoms[j].atom_type_number == curr_atom_type){
+					if(ref_atoms[j].atom_type_number == curr_atom_type){
 						candidates.push_back(j);
 					}
 				}
@@ -269,30 +249,14 @@ inline fp_num* align_pdb_atoms(
 			if(candidates.size() == grid_type.size()){ // make sure we're mapping only residues with the same number of atoms
 				map_res_center /= map_res_count;
 				cross_dist2.clear();
-#if DEBUG_LEVEL>4
-				output << "         ";
-				for(unsigned int l=0; l<grid_type.size(); l++)
-					output << std::setw(9) << grid_ids[grid_type[l]]+1;
-				output << "\n";
-#endif
 				for(unsigned int k=0; k<candidates.size(); k++){
-#if DEBUG_LEVEL>4
-					output << std::setw(5) << candidates[k]+1 << "    ";
-#endif
 					for(unsigned int l=0; l<grid_type.size(); l++){
-						location.vec[0] = map_atoms[candidates[k]].x;
-						location.vec[1] = map_atoms[candidates[k]].y;
-						location.vec[2] = map_atoms[candidates[k]].z;
+						location.vec[0] = ref_atoms[candidates[k]].x;
+						location.vec[1] = ref_atoms[candidates[k]].y;
+						location.vec[2] = ref_atoms[candidates[k]].z;
 						location -= map_res_center;
 						cross_dist2.push_back(fabs((location * location) - grid_res_center_d2[grid_type[l]]));
-#if DEBUG_LEVEL>4
-						output.precision(4);
-						output << std::setw(9) << cross_dist2.back();
-#endif
 					}
-#if DEBUG_LEVEL>4
-					output << "\n";
-#endif
 				}
 				while((candidates.size()>0) && (grid_type.size()>0)){
 					unsigned int closest_k, closest_l;
@@ -318,44 +282,50 @@ inline fp_num* align_pdb_atoms(
 							if((closest_k!=k) && (closest_l!=l)) cross_dist2.push_back(cross_dist2[k*grid_type.size()+l]);
 					cross_dist2.erase(cross_dist2.begin(), cross_dist2.begin() + cs);
 					map_match[grid_type[closest_l]] = candidates[closest_k];
-#if DEBUG_LEVEL>3
-					output << grid_ids[grid_type[closest_l]]+1 << " " << grid_atoms[grid_ids[grid_type[closest_l]]].name << " " << grid_atoms[grid_ids[grid_type[closest_l]]].res_name << " " << grid_atoms[grid_ids[grid_type[closest_l]]].chain_id << " " << grid_atoms[grid_ids[grid_type[closest_l]]].res_id
-					       << " -> " << candidates[closest_k]+1 << " " << map_atoms[candidates[closest_k]].name << " " << map_atoms[candidates[closest_k]].res_name << " " << map_atoms[candidates[closest_k]].chain_id << " " << map_atoms[candidates[closest_k]].res_id << "\n";
-#endif
 					grid_type.erase(grid_type.begin() + closest_l);
 					candidates.erase(candidates.begin() + closest_k);
 				}
 			} else{ // if no candidate atoms are found for the given residue (i.e. only alt_id atoms or no atoms) exclude residue
-#if DEBUG_LEVEL>3
-				output << "No matching " << grid_atoms[grid_ids[grid_type[0]]].atom_type << " candidates for res #" << grid_atoms[grid_ids[grid_type[0]]].res_id << " (" << grid_type.size() << " vs. " << candidates.size() << ")\n";
-#endif
 				for(i = grid_res_start[r]; i < grid_res_start[r+1]; i++) grid_ids[i] = -1;
 				i = grid_res_start[r+1];
 			}
 		}
 	}
-	// align map to residue center closest to geometric center
-	Vec3<fp_num> center(0.0);
-	unsigned int count = 0;
 	for(unsigned int i=0; i<grid_ids.size(); i++){
 		if(grid_ids[i]<0) continue;
-		location.vec[0] = grid_atoms[grid_ids[i]].x; location.vec[1] = grid_atoms[grid_ids[i]].y; location.vec[2] = grid_atoms[grid_ids[i]].z;
+		atom_mapping.push_back(grid_ids[i]);
+		atom_mapping.push_back(map_match[i]);
+	}
+	return atom_mapping;
+}
+
+inline fp_num* align_mapping(
+                             std::vector<PDBatom> &ref_atoms,
+                             std::vector<PDBatom> &align_atoms,
+                             std::vector<int>     &atom_map,
+                             fp_num               &rmsd,
+                             std::stringstream    &output
+                            )
+{
+	Vec3<fp_num> location;
+	Vec3<fp_num> center(0.0);
+	unsigned int count = 0;
+	for(unsigned int i=0; i<atom_map.size(); i+=2){
+		location.vec[0] = align_atoms[atom_map[i]].x; location.vec[1] = align_atoms[atom_map[i]].y; location.vec[2] = align_atoms[atom_map[i]].z;
 		center += location;
 		count++;
 	}
 	if(count == 0){ // this really shouldn't happen but better say something if it were to ...
-		#pragma omp critical
-		cout << output.str() << "ERROR: Failed to match atoms between density map and grid map receptor. Please file a bug report.\n";
-		exit(3);
+		rmsd = -1;
+		return NULL;
 	}
 	center /= count;
 	unsigned int closest = 0;
 	fp_num closest_dist2 = 1e8;
-	for(unsigned int i=0; i<grid_ids.size(); i++){
-		if(grid_ids[i]<0) continue;
-		location.vec[0] = grid_atoms[grid_ids[i]].x;
-		location.vec[1] = grid_atoms[grid_ids[i]].y;
-		location.vec[2] = grid_atoms[grid_ids[i]].z;
+	for(unsigned int i=0; i<atom_map.size(); i+=2){
+		location.vec[0] = align_atoms[atom_map[i]].x;
+		location.vec[1] = align_atoms[atom_map[i]].y;
+		location.vec[2] = align_atoms[atom_map[i]].z;
 		location -= center;
 		fp_num d2 = location*location;
 		if(d2 < closest_dist2){
@@ -363,48 +333,45 @@ inline fp_num* align_pdb_atoms(
 			closest = i;
 		}
 	}
+	Vec3<fp_num> map_center, grid_center;
 	grid_center.vec[0] = 0; grid_center.vec[1] = 0; grid_center.vec[2] = 0;
 	map_center.vec[0]  = 0; map_center.vec[1]  = 0; map_center.vec[2]  = 0;
 	count = 0;
-	for(unsigned int i=0; i<grid_ids.size(); i++){
-		if(grid_ids[i]<0) continue;
-		if((grid_atoms[grid_ids[i]].res_id   == grid_atoms[grid_ids[closest]].res_id) &&
-		   (grid_atoms[grid_ids[i]].chain_id == grid_atoms[grid_ids[closest]].chain_id))
-		{
-			grid_center.vec[0] += grid_atoms[grid_ids[i]].x; grid_center.vec[1] += grid_atoms[grid_ids[i]].y; grid_center.vec[2] += grid_atoms[grid_ids[i]].z;
-			map_center.vec[0]  += map_atoms[map_match[i]].x; map_center.vec[1]  += map_atoms[map_match[i]].y; map_center.vec[2]  += map_atoms[map_match[i]].z;
+	for(unsigned int i=0; i<atom_map.size(); i+=2){
+		if(align_atoms[atom_map[i]].res_id   == align_atoms[atom_map[closest]].res_id){
+			grid_center.vec[0] += align_atoms[atom_map[i]].x; grid_center.vec[1] += align_atoms[atom_map[i]].y; grid_center.vec[2] += align_atoms[atom_map[i]].z;
+			map_center.vec[0]  += ref_atoms[atom_map[i+1]].x; map_center.vec[1]  += ref_atoms[atom_map[i+1]].y; map_center.vec[2]  += ref_atoms[atom_map[i+1]].z;
 			count++;
 		}
 	}
 	grid_center /= count;
 	map_center  /= count;
-	output << "\t-> Grid center (" << grid_atoms[grid_ids[closest]].res_name << " " << grid_atoms[grid_ids[closest]].chain_id << " #" << grid_atoms[grid_ids[closest]].res_id << "): (" << grid_center.V3Str(',',4) << ")\n";
+	output << "\t-> Grid center (" << align_atoms[atom_map[closest]].res_name << " " << align_atoms[atom_map[closest]].chain_id << " #" << align_atoms[atom_map[closest]].res_id << "): (" << grid_center.V3Str(',',4) << ")\n";
 	output << "\t-> Map center:  (" << map_center.V3Str(',',4) << ")\n";
 	Mat33<double> B, BTB, BBT, U, V, M;
 	B.M3Zeros();
 	// Calculate gyration tensors for both
 	count = 0;
-	for(unsigned int i=0; i<grid_ids.size(); i++){
-		if(grid_ids[i]<0) continue;
+	for(unsigned int i=0; i<atom_map.size(); i+=2){
 		// align to respective centers
-		grid_atoms[grid_ids[i]].x -= grid_center.vec[0];
-		grid_atoms[grid_ids[i]].y -= grid_center.vec[1];
-		grid_atoms[grid_ids[i]].z -= grid_center.vec[2];
-		map_atoms[map_match[i]].x -= map_center.vec[0];
-		map_atoms[map_match[i]].y -= map_center.vec[1];
-		map_atoms[map_match[i]].z -= map_center.vec[2];
+		location.vec[0] = align_atoms[atom_map[i]].x - grid_center.vec[0];
+		location.vec[1] = align_atoms[atom_map[i]].y - grid_center.vec[1];
+		location.vec[2] = align_atoms[atom_map[i]].z - grid_center.vec[2];
+		center.vec[0] = ref_atoms[atom_map[i+1]].x - map_center.vec[0];
+		center.vec[1] = ref_atoms[atom_map[i+1]].y - map_center.vec[1];
+		center.vec[2] = ref_atoms[atom_map[i+1]].z - map_center.vec[2];
 		// B = 1/N sum r_grid * r_map^T (outer product aka matrix multiplication)
-		B.mat[0][0] += grid_atoms[grid_ids[i]].x * map_atoms[map_match[i]].x;
-		B.mat[0][1] += grid_atoms[grid_ids[i]].x * map_atoms[map_match[i]].y;
-		B.mat[0][2] += grid_atoms[grid_ids[i]].x * map_atoms[map_match[i]].z;
+		B.mat[0][0] += location.vec[0] * center.vec[0];
+		B.mat[0][1] += location.vec[0] * center.vec[1];
+		B.mat[0][2] += location.vec[0] * center.vec[2];
 		
-		B.mat[1][0] += grid_atoms[grid_ids[i]].y * map_atoms[map_match[i]].x;
-		B.mat[1][1] += grid_atoms[grid_ids[i]].y * map_atoms[map_match[i]].y;
-		B.mat[1][2] += grid_atoms[grid_ids[i]].y * map_atoms[map_match[i]].z;
+		B.mat[1][0] += location.vec[1] * center.vec[0];
+		B.mat[1][1] += location.vec[1] * center.vec[1];
+		B.mat[1][2] += location.vec[1] * center.vec[2];
 		
-		B.mat[2][0] += grid_atoms[grid_ids[i]].z * map_atoms[map_match[i]].x;
-		B.mat[2][1] += grid_atoms[grid_ids[i]].z * map_atoms[map_match[i]].y;
-		B.mat[2][2] += grid_atoms[grid_ids[i]].z * map_atoms[map_match[i]].z;
+		B.mat[2][0] += location.vec[2] * center.vec[0];
+		B.mat[2][1] += location.vec[2] * center.vec[1];
+		B.mat[2][2] += location.vec[2] * center.vec[2];
 		count++;
 	}
 	B /= count;
@@ -439,45 +406,165 @@ inline fp_num* align_pdb_atoms(
 	output << "\t\t" << std::setw(9) << grid_rot.mat[0][1] << " " << std::setw(9) << grid_rot.mat[1][1] << " " << std::setw(9) << grid_rot.mat[2][1] << "\n";
 	output << "\t\t" << std::setw(9) << grid_rot.mat[0][2] << " " << std::setw(9) << grid_rot.mat[1][2] << " " << std::setw(9) << grid_rot.mat[2][2] << "\n";
 	// calculate RMSD
-	fp_num rmsd = 0;
+	rmsd = 0;
 	count = 0;
-	for(unsigned int i=0; i<grid_ids.size(); i++){
-		if(grid_ids[i] < 0) continue; // only count the ones we're trying to match
+	for(unsigned int i=0; i<atom_map.size(); i+=2){
 		count++;
-		location.vec[0] = map_atoms[map_match[i]].x;
-		location.vec[1] = map_atoms[map_match[i]].y;
-		location.vec[2] = map_atoms[map_match[i]].z;
-		center.vec[0] = grid_atoms[grid_ids[i]].x;
-		center.vec[1] = grid_atoms[grid_ids[i]].y;
-		center.vec[2] = grid_atoms[grid_ids[i]].z;
-		center = grid_rot * center;
+		location.vec[0] = align_atoms[atom_map[i]].x - grid_center.vec[0];
+		location.vec[1] = align_atoms[atom_map[i]].y - grid_center.vec[1];
+		location.vec[2] = align_atoms[atom_map[i]].z - grid_center.vec[2];
+		center.vec[0] = ref_atoms[atom_map[i+1]].x - map_center.vec[0];
+		center.vec[1] = ref_atoms[atom_map[i+1]].y - map_center.vec[1];
+		center.vec[2] = ref_atoms[atom_map[i+1]].z - map_center.vec[2];
+		location = grid_rot * location;
 #if DEBUG_LEVEL>3
 		output.precision(3);
 		output.fill(' ');
 		output.setf(ios::fixed, ios::floatfield);
 		output << "ATOM  ";
 		output << std::setw(5) << count << "  ";
-		std::string str = map_atoms[map_match[i]].name;
+		std::string str = ref_atoms[atom_map[i+1]].name;
 		str.resize(4,' ');
-		output << str << std::setw(3) << map_atoms[map_match[i]].res_name << " ";
-		output << map_atoms[map_match[i]].chain_id;
-		output << std::setw(4) << map_atoms[map_match[i]].res_id << "    ";
-		output << std::setw(8) << center.vec[0]+map_center.vec[0] << std::setw(8) << center.vec[1]+map_center.vec[1] << std::setw(8) << center.vec[2]+map_center.vec[2];
-		output << "  1.00  0.00          " << std::setw(2) << map_atoms[map_match[i]].atom_type << "\n";
+		output << str << std::setw(3) << ref_atoms[atom_map[i+1]].res_name << " ";
+		output << ref_atoms[atom_map[i+1]].chain_id;
+		output << std::setw(4) << ref_atoms[atom_map[i+1]].res_id << "    ";
+		output << std::setw(8) << location.vec[0]+map_center.vec[0] << std::setw(8) << location.vec[1]+map_center.vec[1] << std::setw(8) << location.vec[2]+map_center.vec[2];
+		output << "  1.00  0.00          " << std::setw(2) << ref_atoms[atom_map[i+1]].atom_type << "\n";
 #endif
-		location -= center;
-		rmsd += (location * location);
+		center -= location;
+		rmsd += (center * center);
 	}
+	rmsd = sqrt(rmsd/count);
+	output.precision(3);
+	output << "\t-> RMSD after alignment (" << count << " atoms): " << rmsd << " A\n";
 	fp_num* grid_align = new fp_num[9 + 3 + 3];
 	memcpy(grid_align, grid_rot.mat, 9 * sizeof(fp_num));
 	memcpy(grid_align + 9, map_center.vec, 3 * sizeof(fp_num));
 	memcpy(grid_align + 12, grid_center.vec, 3 * sizeof(fp_num));
+	
+	return grid_align;
+}
+
+inline fp_num* align_pdb_atoms(
+                               std::string map_ligand,
+                               std::string align_lig,
+                               int         map_x_dim,
+                               int         map_y_dim,
+                               int         map_z_dim,
+                               fp_num      map_x_center,
+                               fp_num      map_y_center,
+                               fp_num      map_z_center,
+                               fp_num      grid_spacing
+                              )
+{
+	timeval runtime;
+	start_timer(runtime);
+	stringstream output;
+	output << "Aligning density map receptor to grid receptor\n";
+	std::vector<PDBatom> ref_atoms, align_atoms;
+	output << "\t-> Reading density map receptor [" << map_ligand << "]\n";
+	ref_atoms = read_pdb_atoms(map_ligand);
+	if(align_lig.length() != 0){
+		output << "\t-> Reading grid map receptor [" << align_lig << "]\n";
+		align_atoms = read_pdb_atoms(align_lig);
+	} else{
+		#pragma omp critical
+		cout << output.str() << "ERROR: No receptor specified in grid map files.\n";
+		exit(1);
+	}
+	std::vector<char> ref_chain_ids, grid_chain_ids;
+	char curr_chain_id = ref_atoms[0].chain_id;
+	ref_chain_ids.push_back(curr_chain_id);
+	for(unsigned int i = 0; i < ref_atoms.size(); i++){
+		if((ref_atoms[i].alt_id == ' ') &&
+		   (ref_atoms[i].hetatm == false) &&
+		   (curr_chain_id != ref_atoms[i].chain_id)){
+			curr_chain_id = ref_atoms[i].chain_id;
+			bool found    = false;
+			for(unsigned int j = 0; j < ref_chain_ids.size(); j++){
+				if(curr_chain_id == ref_chain_ids[j]){
+					found = true;
+					break;
+				}
+			}
+			if(!found) ref_chain_ids.push_back(curr_chain_id);
+		}
+	}
+	bool use_grid_box = (map_x_dim > 0) && (map_y_dim > 0) && (map_z_dim > 0);
+	Vec3<fp_num> grid_dims;
+	grid_dims.vec[0] = map_x_dim * grid_spacing; grid_dims.vec[1] = map_y_dim * grid_spacing; grid_dims.vec[2] = map_z_dim * grid_spacing;
+	Vec3<fp_num> grid_start;
+	grid_start.vec[0] = map_x_center - grid_dims.vec[0] * 0.5; grid_start.vec[1] = map_y_center - grid_dims.vec[1] * 0.5; grid_start.vec[2] = map_z_center - grid_dims.vec[2] * 0.5;
+	Vec3<fp_num> location;
+	curr_chain_id = '\0';
+	for(unsigned int i=0; i<align_atoms.size(); i++){
+		// only focus on heavy atoms of large molecules in pdb(qt) with no alternative coordinates
+		if((align_atoms[i].alt_id==' ') &&
+		   (align_atoms[i].hetatm == false) &&
+		   (curr_chain_id != align_atoms[i].chain_id))
+		{
+			location.vec[0] = align_atoms[i].x; location.vec[1] = align_atoms[i].y; location.vec[2] = align_atoms[i].z;
+			if(!use_grid_box || point_in_box(location - grid_start, grid_dims)){
+				curr_chain_id = align_atoms[i].chain_id;
+				bool found    = false;
+				for(unsigned int j = 0; j < grid_chain_ids.size(); j++){
+					if(curr_chain_id == grid_chain_ids[j]){
+						found = true;
+						break;
+					}
+				}
+				if(!found) grid_chain_ids.push_back(curr_chain_id);
+			}
+		}
+	}
+	int steps = std::min(ref_chain_ids.size(), grid_chain_ids.size());
+	int count = 0;
+	fp_num best_rmsd = -1;
+	fp_num* best_align = new fp_num[9 + 3 + 3];
+	std::stringstream best_out;
+	std::vector<int> atom_mapping;
+	do{
+		atom_mapping.clear();
+		for(int i=0; i<steps; i++){
+			std::vector<int> atom_map = map_pdb_atoms(
+			                                          ref_atoms,
+			                                          ref_chain_ids[i],
+			                                          align_atoms,
+			                                          grid_chain_ids[i],
+			                                          map_x_dim,
+			                                          map_y_dim,
+			                                          map_z_dim,
+			                                          map_x_center,
+			                                          map_y_center,
+			                                          map_z_center,
+			                                          grid_spacing
+			                                         );
+			atom_mapping.insert(atom_mapping.end(), atom_map.begin(), atom_map.end());
+		}
+		fp_num rmsd;
+		std::stringstream align_out;
+		fp_num* grid_align = align_mapping(
+		                                   ref_atoms,
+		                                   align_atoms,
+		                                   atom_mapping,
+		                                   rmsd,
+		                                   align_out
+		                                  );
+		if((rmsd >= 0) && ((rmsd < best_rmsd) || (best_rmsd < 0))){
+			best_rmsd = rmsd;
+			memcpy(best_align, grid_align, (9+3+3)*sizeof(fp_num));
+			best_out.swap(align_out);
+		}
+		delete[] grid_align;
+		count++;
+	} while(std::next_permutation(ref_chain_ids.begin(), ref_chain_ids.end()) || std::next_permutation(grid_chain_ids.begin(), grid_chain_ids.end()));
+	
+	output << best_out.str();
 	output.precision(3);
-	output << "\t-> RMSD after alignment (" << count << " atoms): " << sqrt(rmsd/count) << " A\n";
 	output << "<- Finished alignment, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
 	#pragma omp critical
 	cout << output.str();
-	return grid_align;
+	return best_align;
 }
 
 #endif // INCLUDED_PDB_READER
