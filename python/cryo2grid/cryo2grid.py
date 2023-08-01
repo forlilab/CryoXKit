@@ -19,6 +19,8 @@ class Cryo2Grid:
             map_file (str): Map (X-ray or CryoEM) file name
 
         """
+        print_version_info()
+        
         self._map_files     = map_files
         self._map_receptors = map_receptors
         self._repeat_unit   = repeat_unit_cell

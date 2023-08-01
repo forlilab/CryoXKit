@@ -13,7 +13,8 @@ UNAME_CMD := $(shell uname -s)
 ifeq ($(UNAME_CMD),Darwin)
 	CXX=clang++
 endif
-CXXFLAGS=-Wall -march=native -Wextra -std=c++11 -O3 -fopenmp
+GIT_VERSION := $(shell git describe --abbrev=7 --dirty --always --tags | sed 's/dirty/mod/g')
+CXXFLAGS=-DC2G_VERSION=\"$(GIT_VERSION)\" -march=native -Wextra -std=c++11 -O3 -fopenmp
 LDFLAGS=
 EXECUTABLE=cryo2grid
 

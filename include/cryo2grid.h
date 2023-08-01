@@ -22,6 +22,8 @@
 #include <string>
 #include <iterator>
 
+void print_version_info();
+
 inline bool grid_filter(std::string name)
 {
 	std::size_t ext = name.find_last_of(".");

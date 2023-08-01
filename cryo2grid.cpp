@@ -221,8 +221,18 @@ std::vector<fp_num> average_densities_to_grid(
 	return densities[0];
 }
 
+void print_version_info()
+{
+	#pragma omp critical
+	{
+		cout << "\nScripps Research Cryo2Grid" << " (" << C2G_VERSION << ")\n";
+		cout << "Compiled " << __DATE__ << "\n\n";
+	}
+}
+
 int main(int argc, const char* argv[])
 {
+	print_version_info();
 	timeval runtime;
 	start_timer(runtime);
 	

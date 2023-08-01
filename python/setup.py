@@ -67,7 +67,7 @@ def find_version():
 
         if git_output.startswith('v'):
             git_output = git_output[1:]
-        version = "0.dev" # + git_output.replace('dirty', 'mod').replace('-', '+', 1).replace('-', '.')
+        version = git_output.replace('dirty', 'mod').replace('-', '+', 1).replace('-', '.')
 
         print('Version found %s (from git describe)' % version)
         return version
@@ -199,6 +199,7 @@ class CustomBuildExt(build_ext):
 #                print('Warning: compiler flag %s is not present, cannot remove it.' % remove_flag)
                 pass
 
+        self.compiler.compiler_so.append('-DC2G_VERSION=\"%s\"' % find_version())
         self.compiler.compiler_so.insert(2, "-Wno-deprecated")
         self.compiler.compiler_so.append("-std=gnu++11")
         self.compiler.compiler_so.append("-Wno-long-long")
@@ -224,7 +225,7 @@ c2g_extension = Extension(
 
 setup(
     name='cryo2grid',
-    version=find_version(),
+    version='0.dev',
     author='Andreas F. Tillack, Althea A. Hansel, Matthew Holcomb, Stefano Forli',
     author_email='forli@scripps.edu',
     license='LGPL-2.1',
