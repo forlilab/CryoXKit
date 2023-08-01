@@ -334,6 +334,7 @@ inline fp_num* align_mapping(
 		}
 	}
 	Vec3<fp_num> map_center, grid_center;
+	Mat33<fp_num> grid_rot;
 	grid_center.vec[0] = 0; grid_center.vec[1] = 0; grid_center.vec[2] = 0;
 	map_center.vec[0]  = 0; map_center.vec[1]  = 0; map_center.vec[2]  = 0;
 	count = 0;
@@ -397,7 +398,6 @@ inline fp_num* align_mapping(
 	V = BTB.Eigenvectors(ew, true); // make sure to normalize eigenvalues
 	M.M3Eye();
 	M.mat[2][2] = U.M3Det() * V.M3Det();
-	Mat33<fp_num> grid_rot;
 	grid_rot = V * (M * U.M3Transpose());
 	output << "\t-> Rotation matrix:\n";
 	output.precision(4);
@@ -407,36 +407,20 @@ inline fp_num* align_mapping(
 	output << "\t\t" << std::setw(9) << grid_rot.mat[0][2] << " " << std::setw(9) << grid_rot.mat[1][2] << " " << std::setw(9) << grid_rot.mat[2][2] << "\n";
 	// calculate RMSD
 	rmsd = 0;
-	count = 0;
 	for(unsigned int i=0; i<atom_map.size(); i+=2){
-		count++;
 		location.vec[0] = align_atoms[atom_map[i]].x - grid_center.vec[0];
 		location.vec[1] = align_atoms[atom_map[i]].y - grid_center.vec[1];
 		location.vec[2] = align_atoms[atom_map[i]].z - grid_center.vec[2];
-		center.vec[0] = ref_atoms[atom_map[i+1]].x - map_center.vec[0];
-		center.vec[1] = ref_atoms[atom_map[i+1]].y - map_center.vec[1];
-		center.vec[2] = ref_atoms[atom_map[i+1]].z - map_center.vec[2];
-		location = grid_rot * location;
-#if DEBUG_LEVEL>3
-		output.precision(3);
-		output.fill(' ');
-		output.setf(ios::fixed, ios::floatfield);
-		output << "ATOM  ";
-		output << std::setw(5) << count << "  ";
-		std::string str = ref_atoms[atom_map[i+1]].name;
-		str.resize(4,' ');
-		output << str << std::setw(3) << ref_atoms[atom_map[i+1]].res_name << " ";
-		output << ref_atoms[atom_map[i+1]].chain_id;
-		output << std::setw(4) << ref_atoms[atom_map[i+1]].res_id << "    ";
-		output << std::setw(8) << location.vec[0]+map_center.vec[0] << std::setw(8) << location.vec[1]+map_center.vec[1] << std::setw(8) << location.vec[2]+map_center.vec[2];
-		output << "  1.00  0.00          " << std::setw(2) << ref_atoms[atom_map[i+1]].atom_type << "\n";
-#endif
-		center -= location;
-		rmsd += (center * center);
+		center.vec[0]   = ref_atoms[atom_map[i+1]].x - map_center.vec[0];
+		center.vec[1]   = ref_atoms[atom_map[i+1]].y - map_center.vec[1];
+		center.vec[2]   = ref_atoms[atom_map[i+1]].z - map_center.vec[2];
+		location        = grid_rot * location;
+		center         -= location;
+		rmsd           += (center * center);
 	}
-	rmsd = sqrt(rmsd/count);
+	rmsd = sqrt(2.0*rmsd/atom_map.size());
 	output.precision(3);
-	output << "\t-> RMSD after alignment (" << count << " atoms): " << rmsd << " A\n";
+	output << "\t-> RMSD after alignment (" << (atom_map.size()>>1) << " atoms): " << rmsd << " A\n";
 	fp_num* grid_align = new fp_num[9 + 3 + 3];
 	memcpy(grid_align, grid_rot.mat, 9 * sizeof(fp_num));
 	memcpy(grid_align + 9, map_center.vec, 3 * sizeof(fp_num));
@@ -454,7 +438,8 @@ inline fp_num* align_pdb_atoms(
                                fp_num      map_x_center,
                                fp_num      map_y_center,
                                fp_num      map_z_center,
-                               fp_num      grid_spacing
+                               fp_num      grid_spacing,
+                               bool        output_align_rec = false
                               )
 {
 	timeval runtime;
@@ -518,7 +503,6 @@ inline fp_num* align_pdb_atoms(
 		}
 	}
 	int steps = std::min(ref_chain_ids.size(), grid_chain_ids.size());
-	int count = 0;
 	fp_num best_rmsd = -1;
 	fp_num* best_align = new fp_num[9 + 3 + 3];
 	std::stringstream best_out;
@@ -556,12 +540,45 @@ inline fp_num* align_pdb_atoms(
 			best_out.swap(align_out);
 		}
 		delete[] grid_align;
-		count++;
 	} while(std::next_permutation(ref_chain_ids.begin(), ref_chain_ids.end()) || std::next_permutation(grid_chain_ids.begin(), grid_chain_ids.end()));
 	
 	output << best_out.str();
 	output.precision(3);
 	output << "<- Finished alignment, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
+	if(output_align_rec){
+		std::size_t mext = map_ligand.find_last_of(".");
+		std::size_t ext  = align_lig.find_last_of(".");
+		string filename  = align_lig.substr(0, ext) + "_ALIGNED_TO_" + map_ligand.substr(0, mext) + ".pdb";
+		std::ofstream align_file(filename);
+		if(align_file.fail()){
+			cout << "Error: Can't open aligned grid map receptor output file " << filename << ".\n";
+			exit(1);
+		}
+		Vec3<fp_num> map_center, grid_center;
+		Mat33<fp_num> grid_rot;
+		memcpy(grid_rot.mat, best_align, 9 * sizeof(fp_num));
+		memcpy(map_center.vec, best_align + 9, 3 * sizeof(fp_num));
+		memcpy(grid_center.vec, best_align + 12, 3 * sizeof(fp_num));
+		for(unsigned int i=0; i<align_atoms.size(); i++){
+			location.vec[0] = align_atoms[i].x - grid_center.vec[0];
+			location.vec[1] = align_atoms[i].y - grid_center.vec[1];
+			location.vec[2] = align_atoms[i].z - grid_center.vec[2];
+			location = grid_rot * location;
+			align_file.precision(3);
+			align_file.fill(' ');
+			align_file.setf(ios::fixed, ios::floatfield);
+			align_file << "ATOM  ";
+			align_file << std::setw(5) << i+1 << "  ";
+			std::string str = align_atoms[i].name;
+			str.resize(4,' ');
+			align_file << str << std::setw(3) << align_atoms[i].res_name << " ";
+			align_file << align_atoms[i].chain_id;
+			align_file << std::setw(4) << align_atoms[i].res_id << "    ";
+			align_file << std::setw(8) << location.vec[0]+map_center.vec[0] << std::setw(8) << location.vec[1]+map_center.vec[1] << std::setw(8) << location.vec[2]+map_center.vec[2];
+			align_file << "  1.00  0.00          " << std::setw(2) << align_atoms[i].atom_type << "\n";
+		}
+		align_file.close();
+	}
 	#pragma omp critical
 	cout << output.str();
 	return best_align;

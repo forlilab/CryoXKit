@@ -11,9 +11,10 @@ parser.add_argument('-l', '--log_min', type=float, help='Min for logistic curve'
 parser.add_argument('-k', '--log_slope', type=float, help='slope for logistic curve', default=2.0)
 parser.add_argument('-x0', '--log_x0', type=float, help='Inflection point for logistic curve', default=0.5)
 parser.add_argument('-p', '--repeat_unit_cell', type=bool, help='Allow density map unit cell repetition', default=True)
+parser.add_argument('-a', '--output_aligned_receptors', type=bool, help='Output aligned receptors as pdb for inspection', default=False)
 args = parser.parse_args()
 
-c2g = Cryo2Grid(args.map_file, args.map_receptor, args.repeat_unit_cell)
+c2g = Cryo2Grid(args.map_file, args.map_receptor, args.repeat_unit_cell, args.output_aligned_receptors)
 grid_maps = c2g.ReadGridMaps(args.grid_maps)
 density   = c2g.ReadMapFiles()
 modified  = c2g.ModifyDensity(density, args.log_min, args.log_slope, args.log_x0)

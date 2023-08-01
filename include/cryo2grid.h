@@ -75,7 +75,8 @@ std::vector<fp_num> average_densities_to_grid(
                                               fp_num       map_y_center,
                                               fp_num       map_z_center,
                                               fp_num       grid_spacing,
-                                              bool         repeat_unit_cell = true
+                                              bool         repeat_unit_cell = true,
+                                              bool         output_align_rec = false
                                              );
 
 #endif // INCLUDED_CRYO2GRID

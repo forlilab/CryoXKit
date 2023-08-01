@@ -141,7 +141,8 @@ std::vector<fp_num> average_densities_to_grid(
                                               fp_num       map_y_center,
                                               fp_num       map_z_center,
                                               fp_num       grid_spacing,
-                                              bool         repeat_unit_cell
+                                              bool         repeat_unit_cell,
+                                              bool         output_align_rec
                                              )
 {
 	if(map_files.size() < 1){
@@ -164,7 +165,8 @@ std::vector<fp_num> average_densities_to_grid(
 				                             map_x_center,
 				                             map_y_center,
 				                             map_z_center,
-				                             grid_spacing
+				                             grid_spacing,
+				                             output_align_rec
 				                            );
 		densities[i] = read_map_to_grid(
 		                                map_files[i],
