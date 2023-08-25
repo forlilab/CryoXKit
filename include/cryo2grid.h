@@ -56,6 +56,12 @@ std::string get_grid_receptor_filename(
                                        std::vector<std::string> grid_files
                                       );
 
+void write_density(
+                   std::vector<fp_num> density,
+                   std::string basename,
+                   int write_type = write_grid_mrc
+                  );
+
 void write_grid_maps(
                      std::vector<fp_num> density,
                      std::vector<GridMap> grid_maps,

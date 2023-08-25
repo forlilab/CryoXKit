@@ -100,6 +100,22 @@ std::string get_grid_receptor_filename(
 	return rec_name;
 }
 
+void write_density(
+                   std::vector<fp_num> density,
+                   std::string basename,
+                   int write_type
+                  )
+{
+	write_grid(
+	           density.data(),
+	           basename,
+	           write_type,
+	           0,
+	           false
+	          );
+}
+
+
 void write_grid_maps(
                      std::vector<fp_num> density,
                      std::vector<GridMap> grid_maps,

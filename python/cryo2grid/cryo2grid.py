@@ -55,13 +55,22 @@ class Cryo2Grid:
         self._grid_spacing = (self._gridmaps[0])[7]
         return self._gridmaps;
     
-    def WriteGridMaps(self, density, write_type=1):
-        """Read AD4 grid maps.
+    def WriteDensity(self, density, basename, write_type=2):
+        """Write AD4 grid maps with density added
 
         Args:
             density: density to add to grid maps (usually the modified density)
-            gridmaps: the grid map data as read by the function above
-            gridmap_files (list of strings): Grid map file names
+            basename: base filename
+            write_type: type of grid map file to write (0 .. nothing, 1 .. AD4, 2 .. MRC)
+
+        """
+        write_density(density, basename, write_type);
+    
+    def WriteGridMaps(self, density, write_type=1):
+        """Write AD4 grid maps with density added
+
+        Args:
+            density: density to add to grid maps (usually the modified density)
             write_type: type of grid map file to write (0 .. nothing, 1 .. AD4, 2 .. MRC)
 
         """
@@ -97,15 +106,15 @@ class Cryo2Grid:
         if align_rec is None: # if it's still None, we need to pass an empty string in the list
             align_rec = ''
         if map_x_dim is None:
-            map_x_dim=int(self._map_x_dim)
+            map_x_dim = self._map_x_dim
         if map_x_dim is None:
             raise RuntimeError('ERROR: Number of grid points in x-direction not set.')
         if map_y_dim is None:
-            map_y_dim=int(self._map_y_dim)
+            map_y_dim = self._map_y_dim
         if map_y_dim is None:
             raise RuntimeError('ERROR: Number of grid points in y-direction not set.')
         if map_z_dim is None:
-            map_z_dim=int(self._map_z_dim)
+            map_z_dim = self._map_z_dim
         if map_z_dim is None:
             raise RuntimeError('ERROR: Number of grid points in z-direction not set.')
         if map_x_center is None:
