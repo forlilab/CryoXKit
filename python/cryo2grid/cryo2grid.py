@@ -106,17 +106,17 @@ class Cryo2Grid:
         if align_rec is None: # if it's still None, we need to pass an empty string in the list
             align_rec = ''
         if map_x_dim is None:
-            map_x_dim = self._map_x_dim
-        if map_x_dim is None:
-            raise RuntimeError('ERROR: Number of grid points in x-direction not set.')
+            if(self._map_x_dim) is None:
+                raise RuntimeError('ERROR: Number of grid points in x-direction not set.')
+            map_x_dim=int(self._map_x_dim)
         if map_y_dim is None:
-            map_y_dim = self._map_y_dim
-        if map_y_dim is None:
-            raise RuntimeError('ERROR: Number of grid points in y-direction not set.')
+            if(self._map_y_dim) is None:
+                raise RuntimeError('ERROR: Number of grid points in y-direction not set.')
+            map_y_dim=int(self._map_y_dim)
         if map_z_dim is None:
-            map_z_dim = self._map_z_dim
-        if map_z_dim is None:
-            raise RuntimeError('ERROR: Number of grid points in z-direction not set.')
+            if(self._map_z_dim) is None:
+                raise RuntimeError('ERROR: Number of grid points in z-direction not set.')
+            map_z_dim=int(self._map_z_dim)
         if map_x_center is None:
             map_x_center=self._map_x_center
         if map_x_center is None:
