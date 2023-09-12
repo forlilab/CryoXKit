@@ -30,10 +30,22 @@ DEPS := $(patsubst %.o,%.d,$(OBJS))
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
-.PHONY: $(EXECUTABLE)
+.PHONY: $(EXECUTABLE) python
 
 $(EXECUTABLE): $(OBJS)
 	$(CXX) $(LDFLAGS) -o $(EXECUTABLE) cryo2grid.cpp $(OBJS)
 
+python:
+	rm -rf python/build/
+	rm -rf python/src/
+	cd python ; python setup.py build install
+
 clean:
+	rm -rf python/build/
+	rm -rf python/src/
+	rm -rf python/cryo2grid.egg-info/
+	rm -rf python/cryo2grid/__pycache__/
+	rm -rf python/cryo2grid/__init__.py
+	rm -f python/cryo2grid/cryo2grid_wrap.cpp
+	rm -f python/cryo2grid/cryo2grid_wrapper.py
 	rm -f $(OBJS) *.d $(EXECUTABLE) example/*.map example/*.grid.mrc

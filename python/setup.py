@@ -45,47 +45,55 @@ def in_conda():
 
 
 def find_version():
-    """Extract the current version of Cryo2Grid.
+    """Extract the current version of Cryo2Grid
     
     The version will be obtained from (in priority order):
     1. version.py (file created only when using GitHub Actions)
     2. git describe
-    3. __init__.py (as failback)
+    3. BASE_VERSION (as failback)
 
     """
+    init_file = os.path.join(base_dir, 'cryo2grid', '__init__.py')
     version_file = os.path.join(base_dir, 'cryo2grid', 'version.py')
     if os.path.isfile(version_file):
         with open(version_file) as f:
             version = f.read().strip()
 
         print('Version found: %s (from version.py)' % version)
+        f = open(init_file, "w")
+        f.write('#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n#\n# Cryo2Grid\n#\n\n__version__ = "%s"\n\nfrom .cryo2grid import Cryo2Grid\n\n__all__ = ["Cryo2Grid"]\n' % version)
         return version
 
     try:
-        git_output = subprocess.check_output(['git', 'describe', '--abbrev=7', '--dirty', '--always', '--tags'])
+        git_output = subprocess.check_output(['git', 'describe', '--abbrev=7', '--dirty=@mod', '--always', '--tags'])
         git_output = git_output.strip().decode()
 
         if git_output.startswith('v'):
             git_output = git_output[1:]
-        version = git_output.replace('dirty', 'mod').replace('-', '+', 1).replace('-', '.')
+        version = git_output.replace('-', '.dev', 1).replace('@', '-', 1).replace('-', '+', 1).replace('-','')
 
         print('Version found %s (from git describe)' % version)
+        f = open(init_file, "w")
+        f.write('#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n#\n# Cryo2Grid\n#\n\n__version__ = "%s"\n\nfrom .cryo2grid import Cryo2Grid\n\n__all__ = ["Cryo2Grid"]\n' % version)
         return version
     except:
         pass
     
-    init_file = os.path.join(base_dir, 'cryo2grid', '__init__.py')
-    with open(init_file) as f:
+    base_file = os.path.join(base_dir, '..', 'BASE_VERSION')
+    with open(base_file) as f:
         for line in f:
-            version_match = re.match(r'^__version__ = "(.+?)"$', line)
+            version_match = re.match(r'^v(.+?)$', line)
 
             if version_match:
                 version = version_match.group(1)
 
-                print('Version found %s (from __init__.py)' % version)
+                print('Version found %s (from BASE_VERSION)' % version)
+                f = open(init_file, "w")
+                f.write('#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n#\n# Cryo2Grid\n#\n\n__version__ = "%s"\n\nfrom .cryo2grid import Cryo2Grid\n\n__all__ = ["Cryo2Grid"]\n' % version)
                 return version
     
     raise RuntimeError('Could not find version string for Cryo2Grid.')
+
 
 
 def execute_command(cmd_line):
@@ -225,7 +233,7 @@ c2g_extension = Extension(
 
 setup(
     name='cryo2grid',
-    version='0.dev',
+    version=find_version(),
     author='Andreas F. Tillack, Althea A. Hansel, Matthew Holcomb, Stefano Forli',
     author_email='forli@scripps.edu',
     license='LGPL-2.1',
