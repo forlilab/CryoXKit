@@ -235,6 +235,17 @@ std::vector<fp_num> average_densities_to_grid(
 		}
 		(densities[0])[8] = rho_min;
 		(densities[0])[9] = rho_max;
+		// calculate median
+		std::vector<fp_num> density_hist(MEDIAN_BINS, 0);
+		fp_num inv_binwidth = MEDIAN_BINS / (rho_max - rho_min);
+		for(unsigned int j=(unsigned int)(densities[0])[0]; j<densities[0].size(); j++)
+			density_hist[(unsigned int)floor(((densities[0])[j]-rho_min) * inv_binwidth)]++;
+		unsigned int half_count = (densities[0].size() - (unsigned int)(densities[0])[0]) >> 1; // find median == find bin number with just more than half the points
+		unsigned int median_idx = 0;
+		unsigned int data_count = 0;
+		while(data_count < half_count)
+			data_count += density_hist[median_idx++];
+		(densities[0])[10] = (fp_num)median_idx / MEDIAN_BINS;
 	}
 	return densities[0];
 }

@@ -16,6 +16,7 @@
 #define DSN6_BLOCKSIZE 512
 
 #define MAPEPS 1e-4
+#define MEDIAN_BINS 10000
 
 #include <stdlib.h>
 #include <math.h>
@@ -518,6 +519,17 @@ inline std::vector<fp_num> read_map_to_grid(
 		rho_std -= rho_avg * rho_avg;
 		rho_std  = sqrt(rho_std);
 	}
+	// calculate median
+	std::vector<unsigned int> density_hist(MEDIAN_BINS, 0);
+	fp_num inv_binwidth = MEDIAN_BINS / (rho_max - rho_min);
+	data_count = densities.size();
+	for(unsigned int i=0; i<data_count; i++)
+		density_hist[(unsigned int)floor((densities[i]-rho_min) * inv_binwidth)]++;
+	unsigned int half_count = data_count >> 1; // find median == find bin number with just more than half the points
+	unsigned int median_idx = 0;
+	data_count = 0;
+	while(data_count < half_count)
+		data_count += density_hist[median_idx++];
 	if(map_type == mrc){
 		rho_min -= rho_avg;
 		rho_min /= rho_std;
@@ -525,7 +537,7 @@ inline std::vector<fp_num> read_map_to_grid(
 		rho_max /= rho_std;
 	}
 	output.precision(3);
-	output << "\t-> density range: " << rho_min << " to " << rho_max << std::setprecision(6) << " (average: " << rho_avg << " +/- " << rho_std << ")\n";
+	output << "\t-> density range: " << rho_min << " to " << rho_max << std::setprecision(6) << " (average: " << rho_avg << " +/- " << rho_std << "; median: " << median_idx / inv_binwidth + rho_min << ")\n";
 	map_file.close();
 	double file_reading_ms = seconds_since(runtime)*1000.0;
 	output.precision(3);
@@ -539,11 +551,10 @@ inline std::vector<fp_num> read_map_to_grid(
 		output << "\t-> grid bounding box: (" << bounding_x_start << ", " << bounding_y_start << ", " << bounding_z_start << ") A to (" << bounding_x_end << ", " << bounding_y_end << ", " << bounding_z_end << ") A\n";
 	
 	fp_num grid_a, grid_b, grid_c, density;
-	std::vector<fp_num> grid_map;
 	unsigned int g1 = map_x_dim + 1;
 	unsigned int g2 = g1 * (map_y_dim + 1);
-	grid_map.resize(g2 * (map_z_dim + 1) + 10);
-	grid_map[0]     = 10;
+	std::vector<fp_num> grid_map(g2 * (map_z_dim + 1) + 11);
+	grid_map[0]     = 11;
 	grid_map[1]     = map_x_dim;
 	grid_map[2]     = map_y_dim;
 	grid_map[3]     = map_z_dim;
@@ -634,14 +645,26 @@ inline std::vector<fp_num> read_map_to_grid(
 					density -= rho_avg;
 					density /= rho_std;
 				}
-				grid_map[x + y*g1 + z*g2 + 10] = density;
+				grid_map[x + y*g1 + z*g2 + 11] = density;
 				rho_min = std::min(density, rho_min);
 				rho_max = std::max(density, rho_max);
 			}
 		}
 	}
-	grid_map[8] = rho_min;
-	grid_map[9] = rho_max;
+	grid_map[8]  = rho_min;
+	grid_map[9]  = rho_max;
+	// calculate median
+	memset(density_hist.data(), 0, MEDIAN_BINS*sizeof(unsigned int));
+	inv_binwidth = MEDIAN_BINS / (rho_max - rho_min);
+	for(unsigned int i=11; i<grid_map.size(); i++)
+		density_hist[(unsigned int)floor((grid_map[i]-rho_min) * inv_binwidth)]++;
+	half_count   = (grid_map.size() - 11) >> 1; // find median == find bin number with just more than half the points
+	median_idx   = 0;
+	data_count   = 0;
+	while(data_count < half_count)
+		data_count += density_hist[median_idx++];
+	grid_map[10] = (fp_num)median_idx / MEDIAN_BINS;
+	output << "\t-> range: " << grid_map[8] << " to " << grid_map[9] << " (median: " << grid_map[10] * (grid_map[9] - grid_map[8]) + grid_map[8] << ")\n";
 	output << "<- Finished interpolating grid map, took " << seconds_since(runtime)*1000.0 - file_reading_ms << " ms.\n\n";
 	#pragma omp critical
 	cout << output.str();

@@ -34,22 +34,23 @@ Reading map file [example/1d3g_2fofc.dsn6]
 	   0.0110    0.0064    0.0000
 	        0    0.0127   -0.0000
 	        0         0    0.0082
-    -> density coordinate range: (25.0768, 13.5440, -17.7846) A to (54.4678, 69.1212, 40.2769) A
-    -> density range: -2.581 to 12.665 (average: -0.029997 +/- 1.000289)
-<- Finished reading densities, took 7.132 ms.
+    -> density unit cell range: (25.0768, 13.5440, -17.7846) A to (54.4678, 69.1212, 40.2769) A
+    -> density range: -2.581 to 12.665 (average: -0.029997 +/- 1.000289; median: -0.118788)
+<- Finished reading densities, took 12.382 ms.
 
 Interpolating density data for 40x40x40 grid (spacing: 0.375 A)
     -> grid start:  (34.930, 34.164, 3.003) A
     -> grid size:   (15.000, 15.000, 15.000) A
-<- Finished interpolating grid map, took 0.678 ms.
+    -> range: -2.156 to 10.769 (median: -0.578)
+<- Finished interpolating grid map, took 1.335 ms.
 
-Adjusting density values using logistics function modifier
-<- Finished adjusting, took 0.545 ms.
+Adjusting density values using logistics function modifier (l: -3 kcal/mol, w: 4 kcal/mol, x0: 0.122)
+<- Finished adjusting, took 0.922 ms.
 
 Writing AD4 grid map file [example/1d3g_2fofc.map]
-<- Finished writing, took 7.634 ms.
+<- Finished writing, took 9.87 ms.
 
-Done. Overall runtime was 16.217 ms.
+Done. Overall runtime was 25 ms.
 ```
 
 For map conversions, the tool only requires the map file and the AD4 grid map files, an example is (note: this will modify the AD4 map files) to run `./cryo2grid example/1ac8/*.dsn6 example/1ac8/*.map`:
@@ -59,7 +60,7 @@ Reading grid map files:
     -> example/1ac8/protein.C.map
     -> example/1ac8/protein.SA.map
     -> example/1ac8/protein.N.map
-<- Done, took 52.648 ms.
+<- Done, took 52.325 ms.
 
 Reading map file [example/1ac8/1ac8_2fofc.dsn6]
     -> DSN6 endian-swapped, file size: 369152
@@ -74,22 +75,23 @@ Reading map file [example/1ac8/1ac8_2fofc.dsn6]
 	   0.0093    0.0000    0.0000
 	        0    0.0129   -0.0000
 	        0         0    0.0193
-    -> density coordinate range: (-9.2571, 69.1240, 28.7708) A to (50.9143, 114.4635, 77.6813) A
-    -> density range: -3.681 to 11.902 (average: -0.030685 +/- 1.000417)
-<- Finished reading densities, took 1.909 ms.
+    -> density unit cell range: (-9.2571, 69.1240, 28.7708) A to (50.9143, 114.4635, 77.6813) A
+    -> density range: -3.681 to 11.902 (average: -0.030685 +/- 1.000417; median: -0.121865)
+<- Finished reading densities, took 2.359 ms.
 
 Interpolating density data for 60x60x60 grid (spacing: 0.375 A)
     -> grid start:  (20.674, 82.194, 36.674) A
     -> grid size:   (22.500, 22.500, 22.500) A
-<- Finished interpolating grid map, took 2.499 ms.
+    -> range: -3.515 to 11.530 (median: -0.293)
+<- Finished interpolating grid map, took 3.907 ms.
 
-Adjusting density values using logistics function modifier
-<- Finished adjusting, took 2.422 ms.
+Adjusting density values using logistics function modifier (l: -3 kcal/mol, w: 4 kcal/mol, x0: 0.214)
+<- Finished adjusting, took 2.58 ms.
 
-Writing AD4 grid map file [example/1ac8/protein.N.map]
-Writing AD4 grid map file [example/1ac8/protein.SA.map]
 Writing AD4 grid map file [example/1ac8/protein.A.map]
+Writing AD4 grid map file [example/1ac8/protein.SA.map]
 Writing AD4 grid map file [example/1ac8/protein.C.map]
+Writing AD4 grid map file [example/1ac8/protein.N.map]
 
-Done. Overall runtime was 95.253 ms.
+Done. Overall runtime was 101 ms.
 ```

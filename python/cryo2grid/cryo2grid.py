@@ -136,14 +136,16 @@ class Cryo2Grid:
         density = average_densities_to_grid(map_files, map_receptors, align_rec, 0, map_x_dim, map_y_dim, map_z_dim, map_x_center, map_y_center, map_z_center, grid_spacing, self._repeat_unit, self._out_align_rec)
         return density;
 
-    def ModifyDensity(self, density, log_max=-3.0, rate=2.0, x0=0.5):
+    def ModifyDensity(self, density, log_max=-3.0, width=4.0, x0=-1):
         """Modify map density using logistics function
 
         Args:
-            density: density to add to grid maps (usually the modified density)
-            log_max, rate, x0: parameters for logistics function used to modify density
+            density: density to add to grid maps (read using ReadMapFiles above)
+            log_max: reward value of logistics function                (default: -3 kcal/mol)
+            width:   width of logistics function                       (default: 4 kcal/mol)
+            x0:      fraction determining center of logistics function (default: -1 == use median of data)
 
         """
-        modified = modify_densities(density, 1, log_max, rate, x0)
+        modified = modify_densities(density, 1, log_max, width, x0)
         return modified;
 
