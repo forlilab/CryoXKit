@@ -149,3 +149,27 @@ class Cryo2Grid:
         modified = modify_densities(density, 1, log_max, width, x0)
         return modified;
 
+    def CreateMask(self, grid_or_mask, mask_pdb, rT = 2.0, subtractive=True, create_new=True):
+        """Create a mask to modify map densities
+
+        Args:
+            grid_or_mask: grid maps to define grid dimensions *or* existing mask to add to
+            mask_pdb:     PDB filename to use as a mask
+            rT:           radius to use for atom density mask
+            subtractive:  atoms in mask_pdb are used to subtract from the map
+            create_new:   start a new mask or add to an existing one
+
+        """
+        mask = create_mask(grid_or_mask, mask_pdb, rT, subtractive, create_new)
+        return mask
+
+    def apply_mask(self, density, mask):
+        """Apply a multiplicative mask to a map density
+
+        Args:
+            density: density map
+            mask:    mask
+
+        """
+        apply_mask(density, maks);
+

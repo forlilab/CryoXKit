@@ -100,6 +100,88 @@ std::string get_grid_receptor_filename(
 	return rec_name;
 }
 
+std::vector<fp_num> create_mask(
+                                std::vector<fp_num> &grid_or_mask,
+                                std::string          mask_pdb,
+                                fp_num               rT,
+                                bool                 subtractive,
+                                bool                 create_new
+                               )
+{
+	std::vector<fp_num> result;
+	if(create_new){
+		result.resize(grid_or_mask.size());
+		#pragma omp parallel for
+		for(unsigned int i=0; i<result.size(); i++)
+			if(i<grid_or_mask[0])
+				result[i] = grid_or_mask[i];
+			else result[i] = 1;
+	} else result = grid_or_mask;
+	Vec3<fp_num> grid_half(
+	                       result[1]*result[7]*0.5,
+	                       result[2]*result[7]*0.5,
+	                       result[3]*result[7]*0.5
+	                      );
+	Vec3<fp_num> grid_start(
+	                        result[4] - grid_half.vec[0],
+	                        result[5] - grid_half.vec[1],
+	                        result[6] - grid_half.vec[2]
+	                       );
+	std::vector<PDBatom> mask_atoms = read_pdb_atoms(mask_pdb);
+	unsigned int g1  = (unsigned int)result[1]+1;
+	unsigned int g2  = g1 * ((unsigned int)result[2]+1);
+	double g_factor  = -2.0 * (rT*rT); // Gaussian exponent pre-factor -1/(2*sigma^2) - use sigma = 1/2*rT (to have 95% decayed at rT)
+	
+	#pragma omp parallel for
+	for(int z=0; z<=(int)result[2]; z++){
+		Vec3<fp_num> grid_pos;
+		grid_pos.vec[2] = z * result[7] + grid_start.vec[2];
+		for(int y=0; y<=(int)result[1]; y++){
+			grid_pos.vec[1] = y * result[7] + grid_start.vec[1];
+			for(int x=0; x<=(int)result[0]; x++){
+				grid_pos.vec[0] = x * result[7] + grid_start.vec[0];
+				unsigned int idx = (x  + y*g1  + z*g2);
+				for(unsigned int i=0; i<mask_atoms.size(); i++){
+					fp_num dist2 = (mask_atoms[i].x-grid_pos.vec[0])*(mask_atoms[i].x-grid_pos.vec[0]) +
+					               (mask_atoms[i].y-grid_pos.vec[1])*(mask_atoms[i].y-grid_pos.vec[1]) +
+					               (mask_atoms[i].z-grid_pos.vec[2])*(mask_atoms[i].z-grid_pos.vec[2]);
+					if(dist2 <= rT){
+						if(subtractive)
+							result[(unsigned int)result[0] + idx] -= exp(g_factor*dist2);
+						else result[(unsigned int)result[0] + idx] += exp(g_factor*dist2);
+						break;
+					}
+				}
+			}
+		}
+	}
+	// normalize
+	fp_num max_mask = 0;
+	for(unsigned int i=result[0]; i<result.size(); i++)
+		if(result[i] > max_mask) max_mask = result[i];
+	if(max_mask < 1e-8){
+		cout << "ERROR: Mask creation (" << (subtractive?"subtract ":"add ") << mask_pdb << ") failed with all points being too small (< 10^-8).\n";
+		exit(8);
+	}
+	for(unsigned int i=result[0]; i<result.size(); i++)
+		result[i] /= max_mask;
+	
+	return result;
+}
+
+void apply_mask(
+                std::vector<fp_num> density,
+                std::vector<fp_num> mask
+               )
+{
+	if(density.size()-density[0] != mask.size() - mask[0]){
+		cout << "ERROR: Mask has different dimensions from density map.\n";
+		exit(7);
+	}
+	for(unsigned int i=0; i<density.size()-(unsigned int)density[0]; i++)
+		density[i+(unsigned int)density[0]] *= mask[i+(unsigned int)mask[0]];
+}
+
 void write_density(
                    std::vector<fp_num> density,
                    std::string basename,

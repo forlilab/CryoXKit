@@ -56,6 +56,19 @@ std::string get_grid_receptor_filename(
                                        std::vector<std::string> grid_files
                                       );
 
+std::vector<fp_num> create_mask(
+                                std::vector<fp_num> &grid_or_mask,
+                                std::string          mask_pdb,
+                                fp_num               rT          = 2,
+                                bool                 subtractive = true,
+                                bool                 create_new  = true
+                               );
+
+void apply_mask(
+                std::vector<fp_num> density,
+                std::vector<fp_num> mask
+               );
+
 void write_density(
                    std::vector<fp_num> density,
                    std::string basename,
