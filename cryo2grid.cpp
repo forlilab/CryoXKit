@@ -108,6 +108,9 @@ std::vector<fp_num> create_mask(
                                 bool                 create_new
                                )
 {
+	timeval runtime;
+	start_timer(runtime);
+	cout << ((create_new)?"Creating":"Adding") << ((subtractive)?" subtractive":" additive") << " mask <" << mask_pdb << ">\n";
 	std::vector<fp_num> result(grid_or_mask.size(), 0);
 	memcpy(result.data(), grid_or_mask.data(), grid_or_mask[0] * sizeof(fp_num));
 	Vec3<fp_num> grid_half(
@@ -148,23 +151,32 @@ std::vector<fp_num> create_mask(
 			}
 		}
 	}
-	if(create_new) return result;
+	if(create_new){
+		cout << "<- Finished, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
+		return result;
+	}
 	
 	for(unsigned int i=result[0]; i<result.size(); i++)
 		grid_or_mask[i] += result[i];
 	
+	cout << "<- Finished, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
 	return grid_or_mask;
 }
 
-void apply_mask(
-                std::vector<fp_num> density,
-                std::vector<fp_num> mask
-               )
+std::vector<fp_num> apply_mask(
+                               std::vector<fp_num> density,
+                               std::vector<fp_num> mask
+                              )
 {
 	if(density.size()-density[0] != mask.size() - mask[0]){
 		cout << "ERROR: Mask has different dimensions from density map.\n";
 		exit(7);
 	}
+	timeval runtime;
+	start_timer(runtime);
+	cout << "Applying density mask ...\n";
+	std::vector<fp_num> result((unsigned int)density[0], 0);
+	memcpy(result.data(), density.data(), density[0] * sizeof(fp_num));
 	// shift and normalize
 	fp_num mask_min = 1;
 	fp_num mask_max = 0;
@@ -179,8 +191,10 @@ void apply_mask(
 		} else{
 			mask_val = (mask_max > EPS) ? mask_val/mask_max + ((mask_min < -EPS) ? 1 : 0) : 0;
 		}
-		density[i+(unsigned int)density[0]] *= mask_val;
+		result[i+(unsigned int)density[0]] = density[i+(unsigned int)density[0]] * mask_val;
 	}
+	cout << "<- Finished, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
+	return result;
 }
 
 void write_density(

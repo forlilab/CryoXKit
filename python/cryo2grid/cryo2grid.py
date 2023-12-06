@@ -174,6 +174,7 @@ class Cryo2Grid:
 
         """
         if mask is None:
-            return
-        apply_mask(density, mask);
+            return density
+        masked_density = apply_mask(density, mask);
+        return masked_density
 

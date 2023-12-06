@@ -64,10 +64,10 @@ std::vector<fp_num> create_mask(
                                 bool                 create_new  = true
                                );
 
-void apply_mask(
-                std::vector<fp_num> density,
-                std::vector<fp_num> mask
-               );
+std::vector<fp_num> apply_mask(
+                               std::vector<fp_num> density,
+                               std::vector<fp_num> mask
+                              );
 
 void write_density(
                    std::vector<fp_num> density,
