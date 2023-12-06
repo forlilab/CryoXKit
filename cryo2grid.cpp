@@ -108,15 +108,8 @@ std::vector<fp_num> create_mask(
                                 bool                 create_new
                                )
 {
-	std::vector<fp_num> result;
-	if(create_new){
-		result.resize(grid_or_mask.size());
-		#pragma omp parallel for
-		for(unsigned int i=0; i<result.size(); i++)
-			if(i<grid_or_mask[0])
-				result[i] = grid_or_mask[i];
-			else result[i] = 1;
-	} else result = grid_or_mask;
+	std::vector<fp_num> result(grid_or_mask.size(), 0);
+	memcpy(result.data(), grid_or_mask.data(), grid_or_mask[0] * sizeof(fp_num));
 	Vec3<fp_num> grid_half(
 	                       result[1]*result[7]*0.5,
 	                       result[2]*result[7]*0.5,
@@ -140,17 +133,12 @@ std::vector<fp_num> create_mask(
 			grid_pos.vec[1] = y * result[7] + grid_start.vec[1];
 			for(int x=0; x<=(int)result[0]; x++){
 				grid_pos.vec[0] = x * result[7] + grid_start.vec[0];
-				unsigned int idx = (x  + y*g1  + z*g2);
+				unsigned int idx = (x  + y*g1  + z*g2) + (unsigned int)result[0];
 				for(unsigned int i=0; i<mask_atoms.size(); i++){
 					fp_num dist2 = (mask_atoms[i].x-grid_pos.vec[0])*(mask_atoms[i].x-grid_pos.vec[0]) +
 					               (mask_atoms[i].y-grid_pos.vec[1])*(mask_atoms[i].y-grid_pos.vec[1]) +
 					               (mask_atoms[i].z-grid_pos.vec[2])*(mask_atoms[i].z-grid_pos.vec[2]);
-					if(dist2 <= rT){
-						if(subtractive)
-							result[(unsigned int)result[0] + idx] -= exp(g_factor*dist2);
-						else result[(unsigned int)result[0] + idx] += exp(g_factor*dist2);
-						break;
-					}
+					if(dist2 <= rT) result[idx] += exp(g_factor*dist2);
 				}
 			}
 		}
@@ -164,9 +152,12 @@ std::vector<fp_num> create_mask(
 		exit(8);
 	}
 	for(unsigned int i=result[0]; i<result.size(); i++)
-		result[i] /= max_mask;
+		result[i] = (subtractive) ? 1 - result[i] / max_mask : result[i] / max_mask;
+	if(create_new) return result;
 	
-	return result;
+	for(unsigned int i=result[0]; i<result.size(); i++)
+		grid_or_mask[i] += result[i];
+	return grid_or_mask;
 }
 
 void apply_mask(
