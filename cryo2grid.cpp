@@ -138,25 +138,21 @@ std::vector<fp_num> create_mask(
 					fp_num dist2 = (mask_atoms[i].x-grid_pos.vec[0])*(mask_atoms[i].x-grid_pos.vec[0]) +
 					               (mask_atoms[i].y-grid_pos.vec[1])*(mask_atoms[i].y-grid_pos.vec[1]) +
 					               (mask_atoms[i].z-grid_pos.vec[2])*(mask_atoms[i].z-grid_pos.vec[2]);
-					if(dist2 <= rT) result[idx] += exp(g_factor*dist2);
+					if(dist2 <= rT){
+						if(subtractive)
+							result[idx] -= exp(g_factor*dist2);
+						else
+							result[idx] += exp(g_factor*dist2);
+					}
 				}
 			}
 		}
 	}
-	// normalize
-	fp_num max_mask = 0;
-	for(unsigned int i=result[0]; i<result.size(); i++)
-		if(result[i] > max_mask) max_mask = result[i];
-	if(max_mask < 1e-8){
-		cout << "ERROR: Mask creation (" << (subtractive?"subtract ":"add ") << mask_pdb << ") failed with all points being too small (< 10^-8).\n";
-		exit(8);
-	}
-	for(unsigned int i=result[0]; i<result.size(); i++)
-		result[i] = (subtractive) ? 1 - result[i] / max_mask : result[i] / max_mask;
 	if(create_new) return result;
 	
 	for(unsigned int i=result[0]; i<result.size(); i++)
 		grid_or_mask[i] += result[i];
+	
 	return grid_or_mask;
 }
 
@@ -169,8 +165,22 @@ void apply_mask(
 		cout << "ERROR: Mask has different dimensions from density map.\n";
 		exit(7);
 	}
-	for(unsigned int i=0; i<density.size()-(unsigned int)density[0]; i++)
-		density[i+(unsigned int)density[0]] *= mask[i+(unsigned int)mask[0]];
+	// shift and normalize
+	fp_num mask_min = 1;
+	fp_num mask_max = 0;
+	for(unsigned int i=mask[0]; i<mask.size(); i++){
+		if(mask_min > mask[i]) mask_min = mask[i];
+		if(mask_max < mask[i]) mask_max = mask[i];
+	}
+	for(unsigned int i=0; i<density.size()-(unsigned int)density[0]; i++){
+		fp_num mask_val = mask[i];
+		if(mask_val < 0){
+			mask_val = (mask_min < -EPS) ? mask_val/(-mask_min) + 1: 0;
+		} else{
+			mask_val = (mask_max > EPS) ? mask_val/mask_max + ((mask_min < -EPS) ? 1 : 0) : 0;
+		}
+		density[i+(unsigned int)density[0]] *= mask_val;
+	}
 }
 
 void write_density(
