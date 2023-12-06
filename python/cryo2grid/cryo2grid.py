@@ -160,10 +160,12 @@ class Cryo2Grid:
             create_new:   start a new mask or add to an existing one
 
         """
+        if mask_pdb is None:
+            return None
         mask = create_mask(grid_or_mask, mask_pdb, rT, subtractive, create_new)
         return mask
 
-    def apply_mask(self, density, mask):
+    def ApplyMask(self, density, mask):
         """Apply a multiplicative mask to a map density
 
         Args:
@@ -171,5 +173,7 @@ class Cryo2Grid:
             mask:    mask
 
         """
-        apply_mask(density, maks);
+        if mask is None:
+            return
+        apply_mask(density, mask);
 
