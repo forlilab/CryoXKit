@@ -31,7 +31,7 @@ inline std::vector<fp_num> modify_densities(
                                             std::vector<fp_num> densities,
                                             const int           mod_fxn    = no_modifier,
                                             const fp_num        log_max    = -3.0,
-                                            const fp_num        width      = 4.0,
+                                                  fp_num        width      = -4,
                                                   fp_num        x0         = -1
                                            )
 {
@@ -61,7 +61,8 @@ inline std::vector<fp_num> modify_densities(
 	modified_density[5] = densities[5];
 	modified_density[6] = densities[6];
 	modified_density[7] = densities[7];
-	if(x0 < 0) x0 = densities[10];
+	if(x0 < 0) x0       = densities[10];
+	if(width < 0) width = densities[11] * (-width);
 	fp_num density;
 	if(mod_fxn == log_modifier){
 		cout.precision(3);

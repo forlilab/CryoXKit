@@ -343,6 +343,7 @@ std::vector<fp_num> average_densities_to_grid(
 		while(data_count < half_count)
 			data_count += density_hist[median_idx++];
 		(densities[0])[10] = (fp_num)median_idx / MEDIAN_BINS;
+		(densities[0])[11] = 1;
 	}
 	return densities[0];
 }

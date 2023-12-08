@@ -553,8 +553,8 @@ inline std::vector<fp_num> read_map_to_grid(
 	fp_num grid_a, grid_b, grid_c, density;
 	unsigned int g1 = map_x_dim + 1;
 	unsigned int g2 = g1 * (map_y_dim + 1);
-	std::vector<fp_num> grid_map(g2 * (map_z_dim + 1) + 11);
-	grid_map[0]     = 11;
+	std::vector<fp_num> grid_map(g2 * (map_z_dim + 1) + 12);
+	grid_map[0]     = 12;
 	grid_map[1]     = map_x_dim;
 	grid_map[2]     = map_y_dim;
 	grid_map[3]     = map_z_dim;
@@ -664,6 +664,7 @@ inline std::vector<fp_num> read_map_to_grid(
 	while(data_count < half_count)
 		data_count += density_hist[median_idx++];
 	grid_map[10] = (fp_num)median_idx / MEDIAN_BINS;
+	grid_map[11] = rho_std;
 	output << "\t-> range: " << grid_map[8] << " to " << grid_map[9] << " (median: " << grid_map[10] * (grid_map[9] - grid_map[8]) + grid_map[8] << ")\n";
 	output << "<- Finished interpolating grid map, took " << seconds_since(runtime)*1000.0 - file_reading_ms << " ms.\n\n";
 	#pragma omp critical

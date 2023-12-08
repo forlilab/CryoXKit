@@ -8,7 +8,7 @@ parser.add_argument('-m', '--map-file', nargs='+', type=str, help='Density map f
 parser.add_argument('-r', '--map-receptor', nargs='+', type=str, help='Receptor associated with density map')
 parser.add_argument('-g', '--grid-maps', nargs='+', type=str, help='Grid map file name(s)', required=True)
 parser.add_argument('-l', '--log_min', type=float, help='Min for logistic curve', default=-3.0)
-parser.add_argument('-w', '--log_width', type=float, help='width for logistic curve', default=4.0)
+parser.add_argument('-w', '--log_width', type=float, help='width for logistic curve (<0 multiplier of data std.dev.)', default=-4)
 parser.add_argument('-x0', '--log_x0', type=float, help='relative inflection point for logistic curve (<0 set automatically based on data median)', default=-1)
 parser.add_argument('-p', '--repeat_unit_cell', type=bool, help='Allow density map unit cell repetition', default=True)
 parser.add_argument('-a', '--output_aligned_receptors', type=bool, help='Output aligned receptors as pdb for inspection', default=False)
