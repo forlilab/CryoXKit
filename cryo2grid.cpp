@@ -262,8 +262,9 @@ std::vector<fp_num> average_densities_to_grid(
 		cout << "ERROR: No density map file(s) specified, nothing to do.\n";
 		exit(1);
 	}
-	std::vector<std::vector<fp_num>> densities;
+	std::vector<std::vector<fp_num>> densities, weights;
 	densities.resize(map_files.size());
+	if(map_files.size() > 1) weights.resize(map_files.size());
 	#pragma omp parallel for
 	for(unsigned int i=0; i<map_files.size(); i++){
 		fp_num* grid_align = NULL;
@@ -309,17 +310,25 @@ std::vector<fp_num> average_densities_to_grid(
 			rho_avg /= densities[i].size() - (unsigned int)(densities[i])[0];
 			rho_std /= densities[i].size() - (unsigned int)(densities[i])[0];
 			rho_std -= rho_avg * rho_avg;
-			rho_std  = sqrt(rho_std) * map_files.size(); // multiply by number of maps here so adding below gives us an average
+			rho_std  = sqrt(rho_std);
+			weights[i].resize(densities[i].size());
 			for(unsigned int j=(unsigned int)(densities[i])[0]; j<densities[i].size(); j++){
-				(densities[i])[j] -= rho_avg;
-				(densities[i])[j] /= rho_std;
+				fp_num dens = ((densities[i])[j] - rho_avg) / rho_std;
+				fp_num w    = exp(dens);
+				(densities[i])[j] = w * dens;
+				(weights[i])[j]   = w;
 			}
 		}
 	}
+	timeval runtime;
+	start_timer(runtime);
+	if(map_files.size() > 1) cout << "Averaging interpolated densities:\n\t-> " << map_files[0] << "\n";
 	for(unsigned int i=1; i<map_files.size(); i++){
+		cout << "\t-> " << map_files[1] << "\n";
 		#pragma omp parallel for
 		for(unsigned int j=(unsigned int)(densities[i])[0]; j<densities[i].size(); j++){
 			(densities[0])[j] += (densities[i])[j];
+			(weights[0])[j]   += (weights[i])[j];
 		}
 	}
 	// recalculate rho_min, rho_max
@@ -327,6 +336,7 @@ std::vector<fp_num> average_densities_to_grid(
 		fp_num rho_min = 1e80;
 		fp_num rho_max = 0;
 		for(unsigned int j=(unsigned int)(densities[0])[0]; j<densities[0].size(); j++){
+			(densities[0])[j] /= (weights[0])[j];
 			rho_min = std::min((densities[0])[j], rho_min);
 			rho_max = std::max((densities[0])[j], rho_max);
 		}
@@ -344,6 +354,10 @@ std::vector<fp_num> average_densities_to_grid(
 			data_count += density_hist[median_idx++];
 		(densities[0])[10] = (fp_num)median_idx / MEDIAN_BINS;
 		(densities[0])[11] = 1;
+		cout.precision(3);
+		cout.setf(ios::fixed, ios::floatfield);
+		cout << "\t-> range: " << (densities[0])[8] << " to " << (densities[0])[9] << " (median: " << (densities[0])[10] * ((densities[0])[9] - (densities[0])[8]) + (densities[0])[8] << ")\n";
+		cout << "<- Finished, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
 	}
 	return densities[0];
 }

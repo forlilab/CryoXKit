@@ -666,7 +666,7 @@ inline std::vector<fp_num> read_map_to_grid(
 	grid_map[10] = (fp_num)median_idx / MEDIAN_BINS;
 	grid_map[11] = rho_std;
 	output << "\t-> range: " << grid_map[8] << " to " << grid_map[9] << " (median: " << grid_map[10] * (grid_map[9] - grid_map[8]) + grid_map[8] << ")\n";
-	output << "<- Finished interpolating grid map, took " << seconds_since(runtime)*1000.0 - file_reading_ms << " ms.\n\n";
+	output << "<- Finished interpolating densities to grid map points, took " << seconds_since(runtime)*1000.0 - file_reading_ms << " ms.\n\n";
 	#pragma omp critical
 	cout << output.str();
 	
