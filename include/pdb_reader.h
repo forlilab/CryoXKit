@@ -122,6 +122,11 @@ inline std::vector<PDBatom> read_pdb_atoms(
 		}
 	}
 	file.close();
+	if(atoms.size()==0){
+		#pragma omp critical
+		cout << "\nERROR: Pdb(qt) file ["<< filename << "] contains no atoms.\n";
+		exit(2);
+	}
 	return atoms;
 }
 
