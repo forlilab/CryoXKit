@@ -645,7 +645,7 @@ inline std::vector<fp_num> read_map_to_grid(
 					density -= rho_avg;
 					density /= rho_std;
 				}
-				grid_map[x + y*g1 + z*g2 + 11] = density;
+				grid_map[x + y*g1 + z*g2 + 12] = density;
 				rho_min = std::min(density, rho_min);
 				rho_max = std::max(density, rho_max);
 			}
@@ -656,12 +656,11 @@ inline std::vector<fp_num> read_map_to_grid(
 	// calculate median
 	memset(density_hist.data(), 0, MEDIAN_BINS*sizeof(unsigned int));
 	inv_binwidth = MEDIAN_BINS / (rho_max - rho_min);
-	for(unsigned int i=11; i<grid_map.size(); i++)
+	for(unsigned int i=12; i<grid_map.size(); i++)
 		density_hist[(unsigned int)floor((grid_map[i]-rho_min) * inv_binwidth)]++;
-	half_count   = (grid_map.size() - 11) >> 1; // find median == find bin number with just more than half the points
-	median_idx   = 0;
+	half_count   = (grid_map.size() - 12) >> 1; // find median == find bin number with just more than half the points
 	data_count   = 0;
-	while(data_count < half_count)
+	for(median_idx = 0; (data_count < half_count) && (median_idx < MEDIAN_BINS); median_idx++)
 		data_count += density_hist[median_idx++];
 	grid_map[10] = (fp_num)median_idx / MEDIAN_BINS;
 	grid_map[11] = rho_std;

@@ -350,7 +350,7 @@ std::vector<fp_num> average_densities_to_grid(
 		unsigned int half_count = (densities[0].size() - (unsigned int)(densities[0])[0]) >> 1; // find median == find bin number with just more than half the points
 		unsigned int median_idx = 0;
 		unsigned int data_count = 0;
-		while(data_count < half_count)
+		for(median_idx = 0; (data_count < half_count) && (median_idx < MEDIAN_BINS); median_idx++)
 			data_count += density_hist[median_idx++];
 		(densities[0])[10] = (fp_num)median_idx / MEDIAN_BINS;
 		(densities[0])[11] = 1;

@@ -546,7 +546,11 @@ inline fp_num* align_pdb_atoms(
 		}
 		delete[] grid_align;
 	} while(std::next_permutation(ref_chain_ids.begin(), ref_chain_ids.end()) || std::next_permutation(grid_chain_ids.begin(), grid_chain_ids.end()));
-	
+	if(best_rmsd < 0){
+		#pragma omp critical
+		cout << output.str() << "ERROR: Could not find enough common atoms between density and grid map receptor.\n";
+		exit(1);
+	}
 	output << best_out.str();
 	output.precision(3);
 	output << "<- Finished alignment, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";
