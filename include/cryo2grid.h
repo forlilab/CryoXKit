@@ -28,7 +28,8 @@ inline bool grid_filter(std::string name)
 {
 	std::size_t ext = name.find_last_of(".");
 	if(ext == std::string::npos) return false;
-	return !((name.substr(ext).compare(".e")==0) || (name.substr(ext).compare(".d")==0) || (name.substr(ext).compare(".H")==0) || (name.substr(ext).compare(".H")==1));
+	name = name.substr(ext+1);
+	return !((name.compare("e")==0) || (name.compare("d")==0) || (name[0]=='H'));
 }
 
 inline std::vector<std::string> filter_grid_files(std::vector<std::string> grid_files)
@@ -94,6 +95,7 @@ std::vector<fp_num> average_densities_to_grid(
                                               fp_num       map_y_center,
                                               fp_num       map_z_center,
                                               fp_num       grid_spacing,
+                                              fp_num       rmsd_cutoff = -1,
                                               bool         repeat_unit_cell = true,
                                               bool         output_align_rec = false
                                              );

@@ -254,6 +254,7 @@ std::vector<fp_num> average_densities_to_grid(
                                               fp_num       map_y_center,
                                               fp_num       map_z_center,
                                               fp_num       grid_spacing,
+                                              fp_num       rmsd_cutoff,
                                               bool         repeat_unit_cell,
                                               bool         output_align_rec
                                              )
@@ -280,6 +281,7 @@ std::vector<fp_num> average_densities_to_grid(
 				                             map_y_center,
 				                             map_z_center,
 				                             grid_spacing,
+				                             rmsd_cutoff,
 				                             output_align_rec
 				                            );
 		densities[i] = read_map_to_grid(

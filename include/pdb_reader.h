@@ -640,6 +640,7 @@ inline fp_num* align_pdb_atoms(
                                fp_num      map_y_center,
                                fp_num      map_z_center,
                                fp_num      grid_spacing,
+                               fp_num      rmsd_cutoff = -1,
                                bool        output_align_rec = false
                               )
 {
@@ -781,8 +782,14 @@ inline fp_num* align_pdb_atoms(
 		}
 		align_file.close();
 	}
-	#pragma omp critical
-	cout << output.str();
+	if((rmsd_cutoff > 0) && (best_rmsd > rmsd_cutoff)){
+		#pragma omp critical
+		cout << output.str() << "ERROR: RMSD of alignment (" << best_rmsd << " A) is above the set threshold (" << rmsd_cutoff << " A).\n";
+		exit(1);
+	} else{
+		#pragma omp critical
+		cout << output.str();
+	}
 	return best_align;
 }
 
