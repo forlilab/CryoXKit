@@ -98,6 +98,8 @@ class Vec3
 		T V3Norm() const;
 		T V3Sum() const;
 		T V3Prod() const;
+		template<typename U>
+		Vec3<T> project(const Vec3<U>);
 		std::string V3Str() const
 		{
 			std::stringstream converter;
@@ -284,8 +286,18 @@ class Mat33
 		
 		//Special functions
 		CVec3<T> Eigenvalues();
-		Mat33 Eigenvectors(Vec3<T> &ew){ bool* multiples=new bool[3]; Mat33 A=Eigenvectors(ew,multiples,false); delete[] multiples; return A; };
-		Mat33 Eigenvectors(Vec3<T> &ew, bool normalize){ bool* multiples=new bool[3]; Mat33 A=Eigenvectors(ew,multiples,normalize); delete[] multiples; return A; };
+		Mat33 Eigenvectors(Vec3<T> &ew){
+			bool* multiples = new bool[3];
+			Mat33 A = Eigenvectors(ew,multiples,false);
+			delete[] multiples;
+			return A;
+		};
+		Mat33 Eigenvectors(Vec3<T> &ew, bool normalize){
+			bool* multiples = new bool[3];
+			Mat33 A = Eigenvectors(ew,multiples,normalize);
+			delete[] multiples;
+			return A;
+		};
 		Mat33 Eigenvectors(Vec3<T> &ew, bool* multiples, bool normalize);
 		inline Mat33 M3MulDiag(const T a, const T b, const T c);
 		Mat33 M3Transpose();
@@ -478,6 +490,15 @@ inline Vec3<T>& Vec3<T>::operator=(const Vec3<U> &u)
 	vec[1] = (T)u.vec[1];
 	vec[2] = (T)u.vec[2];
 	return *this;
+}
+
+/// Project argument vector u on current vector v
+template<typename T>
+template<typename U>
+inline Vec3<T> Vec3<T>::project(const Vec3<U> u)
+{
+	Vec3<T> v(vec[0], vec[1], vec[2]);
+	return v*(u*v)/(v*v);
 }
 
 /// Swap values in two vectors u <-> v
@@ -1674,9 +1695,9 @@ inline void Mat33<T>::LUDecomposition()
  * |	a21	a22-lambda	a23	| = 0 = lambda^3 + alpha*lambda^2 + beta*lambda + gamma
  * |	a31	a32	a33-lambda	|
  *
- * alpha = -a11 - a22 - a33 ;
- * beta = a11*(a22+a33) - alphax - a13*a31 - a12*a21
- * gamma = a11*alphax - a12*(a23*a31-a21*a33) - a13*(a21*a32-a31*a22)
+ * alpha  = -a11 - a22 - a33 ;
+ * beta   = a11*(a22+a33) - alphax - a13*a31 - a12*a21
+ * gamma  = a11*alphax - a12*(a23*a31-a21*a33) - a13*(a21*a32-a31*a22)
  * alphax = a23*a32 - a22*a33
  *
  * reduced form after substition with lambda = z - alpha/3
@@ -1691,17 +1712,20 @@ inline CVec3<T> Mat33<T>::Eigenvalues()
 #if DEBUG_LEVEL>2
 	cout << "Start Mat33::Eigenvalue\n";
 #endif
-	T alpha = -mat[0][0]-mat[1][1]-mat[2][2];
+	T alpha  = -mat[0][0]-mat[1][1]-mat[2][2];
 	T alphax = mat[1][2]*mat[2][1]-mat[1][1]*mat[2][2];
-	T beta = mat[0][0]*(mat[1][1]+mat[2][2])-alphax-mat[0][2]*mat[2][0]-mat[0][1]*mat[1][0];
-	T gamma = mat[0][0]*alphax-mat[0][1]*(mat[1][2]*mat[2][0]-mat[1][0]*mat[2][2])-mat[0][2]*(mat[1][0]*mat[2][1]-mat[2][0]*mat[1][1]);
+	T beta   = mat[0][0]*(mat[1][1]+mat[2][2])-alphax-mat[0][2]*mat[2][0]-mat[0][1]*mat[1][0];
+	T gamma  = mat[0][0]*alphax-mat[0][1]*(mat[1][2]*mat[2][0]-mat[1][0]*mat[2][2])-mat[0][2]*(mat[1][0]*mat[2][1]-mat[2][0]*mat[1][1]);
 #if DEBUG_LEVEL>2
 	cout << "alpha = " << alpha << ", beta = " << beta << ", gamma = " << gamma << ", alphax = " << alphax << "\n";
 #endif
 	CVec3<T> cv;
-	alphax=alpha/3.0; // alphax redefined
-	cv=SolvePolynomial3(beta-alpha*alphax,gamma+alphax*((T)2.0*alphax*alphax-beta));
-	cv-=alphax; // lambda = z - alpha/3
+	alphax   = alpha/3.0; // alphax redefined
+	cv       = SolvePolynomial3(
+	                            beta - alpha*alphax,
+	                            gamma + alphax*((T)2.0*alphax*alphax - beta)
+	                           );
+	cv      -= alphax; // lambda = z - alpha/3
 #if DEBUG_LEVEL>2
 	cout << "Finished Mat33::Eigenvalues\n";
 #endif
@@ -1714,12 +1738,34 @@ inline Mat33<T> Mat33<T>::Eigenvectors(Vec3<T> &ew, bool* multiples, bool normal
 	Mat33<T> result;
 	for(unsigned int i=0; i<3; i++){
 		Mat33<T> A(*this);
-		A.mat[0][0]-=ew.vec[i]; A.mat[1][1]-=ew.vec[i]; A.mat[2][2]-=ew.vec[i];
+		A.mat[0][0] -= ew.vec[i]; A.mat[1][1] -= ew.vec[i]; A.mat[2][2] -= ew.vec[i];
 		Vec3<T> zero(0.0);
-		Vec3<T> v=A.M3LinSolve(zero,multiples[i]);
-		if(normalize) v/=v.V3Norm();
-		result.mat[0][i]=v.vec[0]; result.mat[1][i]=v.vec[1]; result.mat[2][i]=v.vec[2];
+		Vec3<T> v = A.M3LinSolve(zero,multiples[i]);
+		if(normalize) v /= v.V3Norm();
+		result.mat[0][i] = v.vec[0];
+		result.mat[1][i] = v.vec[1];
+		result.mat[2][i] = v.vec[2];
 	}
+	return result;
+}
+
+/// Modified Gram-Schmidt Orthonormaliztion
+template<typename T>
+inline Mat33<T> MGS(Mat33<T> ev)
+{
+	Mat33<T> result;
+	Vec3<T> v;
+	for(unsigned int i=0; i<3; i++){
+		v  = ev.ColumnVec3(i);
+		v /= v.V3Norm();
+		result.mat[0][i] = v.vec[0]; result.mat[1][i] = v.vec[1]; result.mat[2][i] = v.vec[2];
+		for(unsigned int j=0; j<i; j++){
+			v  = result.ColumnVec3(i) - (result.ColumnVec3(j)).project(ev.ColumnVec3(i));
+			v /= v.V3Norm();
+			result.mat[0][i] = v.vec[0]; result.mat[1][i] = v.vec[1]; result.mat[2][i] = v.vec[2];
+		}
+	}
+	
 	return result;
 }
 
