@@ -244,7 +244,7 @@ inline std::vector<point> map_pdb_points(
 						break;
 					}
 				}
-				if(map_res_dict.size() > 0){ // fill holes in map residues
+				if(map_res_dict.size() > 0){ // fill holes in map residues so residue pattern match below works
 					for(int j = 1; j < map_atoms[i].res_id - curr_resid; j++){
 						map_res_dict.push_back(-1);
 						map_res_dict_ids.push_back(-1);
@@ -360,7 +360,8 @@ inline std::vector<point> map_pdb_points(
 			// container for atoms with the same name is the one we're looking for (should mostly only be one ... but you never know)
 			candidates.clear();
 			for(unsigned int j = map_res_start[z]; j < map_res_start[z+1]; j++){
-				if((map_atoms[j].alt_id   == ' ') &&
+				if((map_atoms[j].chain_id == map_chain_id) &&
+				   (map_atoms[j].alt_id   == ' ') &&
 				   (map_atoms[j].hetatm   == false) &&
 				   (map_atoms[j].atom_type_number > 1) &&
 				   (map_atoms[j].atom_type_number == curr_atom_type))
@@ -424,7 +425,7 @@ inline std::vector<point> map_pdb_points(
 	unsigned int matched = 0;
 	for(unsigned int r=0; r<res_matched.size(); r++)
 		matched += (res_matched[r] == true);
-	if(matched < 4) point_mapping.clear(); // match atoms from at least three different residues
+//	if(matched < 4) point_mapping.clear(); // match atoms from at least three different residues
 	return point_mapping;
 }
 
@@ -436,6 +437,8 @@ inline fp_num* align_mapping(
 {
 	if(point_map.size() == 0){ // this really shouldn't happen but better say something if it were to ...
 		rmsd = -1;
+		#pragma omp critical
+		cout << "here.2\n";
 		return NULL;
 	}
 	Vec3<fp_num> location;
