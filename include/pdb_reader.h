@@ -87,8 +87,24 @@ static inline void range_trim_to_char(std::string s, unsigned int start, unsigne
 	c[count] = '\0';
 }
 
+/// function to compare if strings are equal (uppercase)
+inline bool compare_strings(const char* s1, const char* s2)
+{
+	unsigned int len=strlen(s1);
+	if(len==strlen(s2)){
+		for(unsigned int i=0; i<len; i++){
+			if(toupper(s1[i])!=toupper(s2[i])){
+				return false;
+			}
+		}
+		return true;
+	}
+	return false;
+}
+
 inline std::vector<PDBatom> read_pdb_atoms(
-                                           std::string filename
+                                           std::string filename,
+                                           bool        ignore_HOH = false
                                           )
 {
 	timeval runtime;
@@ -124,7 +140,9 @@ inline std::vector<PDBatom> read_pdb_atoms(
 			current.ins_id = line[26];
 			line[26] = '\0'; // make sure res_id only 4 digits
 			sscanf(&line.c_str()[22], "%d", &(current.res_id));
-			atoms.push_back(current);
+			if(ignore_HOH){
+				if(!compare_strings(current.res_name, "HOH")) atoms.push_back(current); // don't include atoms belonging to HOH "residue" (as water is not a residue)
+			} else atoms.push_back(current);
 		}
 	}
 	file.close();
@@ -437,8 +455,6 @@ inline fp_num* align_mapping(
 {
 	if(point_map.size() == 0){ // this really shouldn't happen but better say something if it were to ...
 		rmsd = -1;
-		#pragma omp critical
-		cout << "here.2\n";
 		return NULL;
 	}
 	Vec3<fp_num> location;
@@ -653,10 +669,10 @@ inline fp_num* align_pdb_atoms(
 	output << "Aligning density map receptor to grid receptor\n";
 	std::vector<PDBatom> map_atoms, align_atoms;
 	output << "\t-> Reading density map receptor [" << map_ligand << "]\n";
-	map_atoms = read_pdb_atoms(map_ligand);
+	map_atoms = read_pdb_atoms(map_ligand, true);
 	if(align_lig.length() != 0){
 		output << "\t-> Reading grid map receptor [" << align_lig << "]\n";
-		align_atoms = read_pdb_atoms(align_lig);
+		align_atoms = read_pdb_atoms(align_lig, true);
 	} else{
 		#pragma omp critical
 		cout << output.str() << "ERROR: No receptor specified in grid map files.\n";
