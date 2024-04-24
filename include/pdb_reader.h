@@ -425,7 +425,7 @@ inline std::vector<point> map_pdb_points(
 	unsigned int matched = 0;
 	for(unsigned int r=0; r<res_matched.size(); r++)
 		matched += (res_matched[r] == true);
-//	if(matched < 4) point_mapping.clear(); // match atoms from at least three different residues
+	if(matched < 4) point_mapping.clear(); // match atoms from at least three different residues
 	return point_mapping;
 }
 
