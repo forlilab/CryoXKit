@@ -101,18 +101,20 @@ std::string get_grid_receptor_filename(
 }
 
 std::vector<fp_num> create_mask(
-                                std::vector<fp_num> &grid_or_mask,
-                                std::string          mask_pdb,
-                                fp_num               rT,
-                                bool                 subtractive,
-                                bool                 create_new
+                                std::vector<fp_num> grid_or_mask,
+                                std::string         mask_pdb,
+                                fp_num              rT,
+                                bool                subtractive,
+                                bool                create_new
                                )
 {
 	timeval runtime;
 	start_timer(runtime);
 	cout << ((create_new)?"Creating":"Adding") << ((subtractive)?" subtractive":" additive") << " mask <" << mask_pdb << ">\n";
 	std::vector<fp_num> result(grid_or_mask.size(), 0);
-	memcpy(result.data(), grid_or_mask.data(), grid_or_mask[0] * sizeof(fp_num));
+	if(create_new){
+		memcpy(result.data(), grid_or_mask.data(), grid_or_mask[0] * sizeof(fp_num));
+	} else memcpy(result.data(), grid_or_mask.data(), grid_or_mask.size() * sizeof(fp_num));
 	Vec3<fp_num> grid_half(
 	                       result[1]*result[7]*0.5,
 	                       result[2]*result[7]*0.5,
@@ -156,11 +158,8 @@ std::vector<fp_num> create_mask(
 		return result;
 	}
 	
-	for(unsigned int i=result[0]; i<result.size(); i++)
-		grid_or_mask[i] += result[i];
-	
 	cout << "<- Finished, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
-	return grid_or_mask;
+	return result;
 }
 
 std::vector<fp_num> apply_mask(

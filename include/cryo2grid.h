@@ -58,11 +58,11 @@ std::string get_grid_receptor_filename(
                                       );
 
 std::vector<fp_num> create_mask(
-                                std::vector<fp_num> &grid_or_mask,
-                                std::string          mask_pdb,
-                                fp_num               rT          = 2,
-                                bool                 subtractive = true,
-                                bool                 create_new  = true
+                                std::vector<fp_num> grid_or_mask,
+                                std::string         mask_pdb,
+                                fp_num              rT          = 2,
+                                bool                subtractive = true,
+                                bool                create_new  = true
                                );
 
 std::vector<fp_num> apply_mask(
