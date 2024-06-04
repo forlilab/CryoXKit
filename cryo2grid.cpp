@@ -174,7 +174,7 @@ std::vector<fp_num> apply_mask(
 	timeval runtime;
 	start_timer(runtime);
 	cout << "Applying density mask ...\n";
-	std::vector<fp_num> result((unsigned int)density[0], 0);
+	std::vector<fp_num> result(density.size(), 0);
 	memcpy(result.data(), density.data(), density[0] * sizeof(fp_num));
 	// shift and normalize
 	fp_num mask_min = 1;
