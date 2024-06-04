@@ -184,12 +184,13 @@ std::vector<fp_num> apply_mask(
 		if(mask_max < mask[i]) mask_max = mask[i];
 	}
 	for(unsigned int i=0; i<density.size()-(unsigned int)density[0]; i++){
-		fp_num mask_val = mask[i];
+		fp_num mask_val = mask[i+(unsigned int)mask[0]];
 		if(mask_val < 0){
-			mask_val = (mask_min < -EPS) ? mask_val/(-mask_min) + 1: 0;
+			mask_val = (mask_min < -EPS) ? mask_val/(-mask_min) : 0;
 		} else{
-			mask_val = (mask_max > EPS) ? mask_val/mask_max + ((mask_min < -EPS) ? 1 : 0) : 0;
+			mask_val = (mask_max > EPS) ? mask_val/mask_max : 0;
 		}
+		mask_val += 1;
 		result[i+(unsigned int)density[0]] = density[i+(unsigned int)density[0]] * mask_val;
 	}
 	cout << "<- Finished, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
