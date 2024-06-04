@@ -100,6 +100,8 @@ std::string get_grid_receptor_filename(
 	return rec_name;
 }
 
+#define gauss_exp(xs2) ((1-(xs2)*(0.0969903f+(xs2)*(-0.00308563f+3.15502e-05f*(xs2)))) / (1+(xs2)*(0.402882f +(xs2)*( 0.0801046f+(xs2)*(0.00960476f+(xs2)*(0.00125787f+1.03758e-05f*(xs2)*(xs2)))))))
+
 std::vector<fp_num> create_mask(
                                 std::vector<fp_num> grid_or_mask,
                                 std::string         mask_pdb,
@@ -128,26 +130,29 @@ std::vector<fp_num> create_mask(
 	std::vector<PDBatom> mask_atoms = read_pdb_atoms(mask_pdb);
 	unsigned int g1  = (unsigned int)result[1]+1;
 	unsigned int g2  = g1 * ((unsigned int)result[2]+1);
-	double g_factor  = -2.0 * (rT*rT); // Gaussian exponent pre-factor -1/(2*sigma^2) - use sigma = 1/2*rT (to have 95% decayed at rT)
+	double cutoff2   = rT;
+	       cutoff2  *= rT;
+	double g_factor  = 4.0 / cutoff2;
+	       cutoff2  *= 8; // cutoff at e^(-16) = 1.1 x 10^-7 (aka around single precision)
 	
 	#pragma omp parallel for
-	for(int z=0; z<=(int)result[2]; z++){
+	for(int z=0; z<=(int)result[3]; z++){
 		Vec3<fp_num> grid_pos;
 		grid_pos.vec[2] = z * result[7] + grid_start.vec[2];
-		for(int y=0; y<=(int)result[1]; y++){
+		for(int y=0; y<=(int)result[2]; y++){
 			grid_pos.vec[1] = y * result[7] + grid_start.vec[1];
-			for(int x=0; x<=(int)result[0]; x++){
+			for(int x=0; x<=(int)result[1]; x++){
 				grid_pos.vec[0] = x * result[7] + grid_start.vec[0];
 				unsigned int idx = (x  + y*g1  + z*g2) + (unsigned int)result[0];
 				for(unsigned int i=0; i<mask_atoms.size(); i++){
 					fp_num dist2 = (mask_atoms[i].x-grid_pos.vec[0])*(mask_atoms[i].x-grid_pos.vec[0]) +
 					               (mask_atoms[i].y-grid_pos.vec[1])*(mask_atoms[i].y-grid_pos.vec[1]) +
 					               (mask_atoms[i].z-grid_pos.vec[2])*(mask_atoms[i].z-grid_pos.vec[2]);
-					if(dist2 <= rT){
+					if(dist2 <= cutoff2){
 						if(subtractive)
-							result[idx] -= exp(g_factor*dist2);
+							result[idx] -= gauss_exp(g_factor*dist2);
 						else
-							result[idx] += exp(g_factor*dist2);
+							result[idx] += gauss_exp(g_factor*dist2);
 					}
 				}
 			}
