@@ -487,7 +487,7 @@ inline fp_num* align_mapping(
 	for(unsigned int pre=0; pre<10; pre++){
 		switch(pre){
 			default:
-			case 0: pre_rot.M3Zeros();
+			case 0: pre_rot.M3Eye();
 				break;
 			case 1: // 90 degree rotation around x
 				pre_rot.mat[0][0] = 1; pre_rot.mat[0][1] = 0; pre_rot.mat[0][2] = 0;
