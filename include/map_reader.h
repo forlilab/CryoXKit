@@ -425,9 +425,9 @@ inline std::vector<fp_num> read_map_to_grid(
 			gy = map_y_center + map_y_dim * grid_spacing * ((i&2) ? 0.5 : -0.5) - grid_align[13];
 			gz = map_z_center + map_x_dim * grid_spacing * ((i&4) ? 0.5 : -0.5) - grid_align[14];
 			// rotate
-			ga = gx * grid_align[0] + gy * grid_align[3] + gz * grid_align[6];
-			gb = gx * grid_align[1] + gy * grid_align[4] + gz * grid_align[7];
-			gc = gx * grid_align[2] + gy * grid_align[5] + gz * grid_align[8];
+			ga = gx * grid_align[0] + gy * grid_align[1] + gz * grid_align[2];
+			gb = gx * grid_align[3] + gy * grid_align[4] + gz * grid_align[5];
+			gc = gx * grid_align[6] + gy * grid_align[7] + gz * grid_align[8];
 			// move to map center
 			ga += grid_align[9];
 			gb += grid_align[10];
@@ -579,9 +579,9 @@ inline std::vector<fp_num> read_map_to_grid(
 					gy = grid_b - grid_align[13];
 					gz = grid_c - grid_align[14];
 					// rotate
-					grid_a = gx * grid_align[0] + gy * grid_align[3] + gz * grid_align[6];
-					grid_b = gx * grid_align[1] + gy * grid_align[4] + gz * grid_align[7];
-					grid_c = gx * grid_align[2] + gy * grid_align[5] + gz * grid_align[8];
+					grid_a = gx * grid_align[0] + gy * grid_align[1] + gz * grid_align[2];
+					grid_b = gx * grid_align[3] + gy * grid_align[4] + gz * grid_align[5];
+					grid_c = gx * grid_align[6] + gy * grid_align[7] + gz * grid_align[8];
 					// move to map center
 					grid_a += grid_align[9];
 					grid_b += grid_align[10];
