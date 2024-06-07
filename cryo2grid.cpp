@@ -132,7 +132,7 @@ std::vector<fp_num> create_mask(
 	unsigned int g2  = g1 * ((unsigned int)result[2]+1);
 	double cutoff2   = rT;
 	       cutoff2  *= rT;
-	double g_factor  = 4.0 / cutoff2;
+	double g_factor  = 4.0 / cutoff2; // sigma = 1/2 * rT => 1/sigma^2 = 1/ (1/2 * rT)^2 = 4 / rT^2
 	       cutoff2  *= 8; // cutoff at e^(-16) = 1.1 x 10^-7 (aka around single precision)
 	
 	#pragma omp parallel for

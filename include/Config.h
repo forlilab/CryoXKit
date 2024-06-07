@@ -17,6 +17,10 @@
 #define MODIFY_NORMALIZED_DENSITIES
 #define PARALLELIZE
 
+// Settings controlling the minima needed for matching
+#define MIN_COMMON_ATOMS 20
+#define MIN_COMMON_RESIDUES 3
+
 enum map_types_supported{
 	automatic = 0,
 	dsn6      = 1,
