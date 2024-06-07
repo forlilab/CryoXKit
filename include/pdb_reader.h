@@ -444,7 +444,7 @@ inline std::vector<point> map_pdb_points(
 	for(unsigned int r=0; r<res_matched.size(); r++)
 		matched += (res_matched[r] == true);
 	if(matched < MIN_COMMON_RESIDUES) point_mapping.clear();
-	if(point_mapping.size() < MIN_COMMON_ATOMS) point_mapping.clear();
+	if((point_mapping.size()>>1) < MIN_COMMON_ATOMS) point_mapping.clear();
 	return point_mapping;
 }
 
@@ -725,6 +725,7 @@ inline fp_num* align_pdb_atoms(
 		}
 	}
 	fp_num best_rmsd = -1;
+	fp_num best_nrmsd = -1;
 	fp_num* best_align = new fp_num[9 + 3 + 3];
 	std::stringstream best_out;
 	for(unsigned int i=0; i<map_chain_ids.size(); i++){
@@ -743,14 +744,21 @@ inline fp_num* align_pdb_atoms(
 			                                              grid_spacing
 			                                             );
 			fp_num rmsd = -1;
+			fp_num nrmsd = -1;
 			std::stringstream align_out;
 			fp_num* grid_align = align_mapping(
 			                                   point_map,
 			                                   rmsd,
 			                                   align_out
 			                                  );
-			if((rmsd >= 0) && ((rmsd < best_rmsd) || (best_rmsd < 0))){
+			if(rmsd >= 0){
+				// use normalized RMSD for comparison according to:
+				// O. Carugo, S. Pongor: "A normalized root-mean-spuare distance for comparing protein three-dimensional structures", Protein Sci. 10(7), 1470–1473 (2001)
+				nrmsd = rmsd / (1 + 0.5 * log((point_map.size()>>1)/100.0));
+			}
+			if((nrmsd >= 0) && ((nrmsd < best_nrmsd) || (best_nrmsd < 0))){
 				best_rmsd = rmsd;
+				best_nrmsd = nrmsd;
 				memcpy(best_align, grid_align, (9+3+3)*sizeof(fp_num));
 				best_out.swap(align_out);
 			}
