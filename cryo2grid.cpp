@@ -330,7 +330,7 @@ std::vector<fp_num> average_densities_to_grid(
 	start_timer(runtime);
 	if(map_files.size() > 1) cout << "Averaging interpolated densities:\n\t-> " << map_files[0] << "\n";
 	for(unsigned int i=1; i<map_files.size(); i++){
-		cout << "\t-> " << map_files[1] << "\n";
+		cout << "\t-> " << map_files[i] << "\n";
 		#pragma omp parallel for
 		for(unsigned int j=(unsigned int)(densities[i])[0]; j<densities[i].size(); j++){
 			(densities[0])[j] += (densities[i])[j];
