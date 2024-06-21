@@ -56,6 +56,9 @@ class Cryo2Grid:
         self._grid_spacing = (self._gridmaps[0])[7]
         return self._gridmaps;
     
+    def Convert2MRC(self, mapfile):
+        convert_map_to_mrc(mapfile);
+    
     def WriteDensity(self, density, basename, write_type=2):
         """Write AD4 grid maps with density added
 

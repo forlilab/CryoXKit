@@ -672,5 +672,392 @@ inline std::vector<fp_num> read_map_to_grid(
 	return grid_map;
 }
 
+inline void convert_map_to_mrc(std::string  filename)
+{
+	timeval runtime;
+	start_timer(runtime);
+	stringstream output;
+	
+	std::vector<float> densities;
+	
+	output << "Reading map file [" << filename << "]\n";
+	std::ifstream map_file(filename, std::ifstream::binary);
+	if(map_file.fail()){
+		#pragma omp critical
+		cout << output.str() << "\nERROR: Can't open map file " << filename << ".\n";
+		exit(1);
+	}
+	std::streamoff filesize  = map_file.tellg();
+	                           map_file.seekg(0, std::ios::end);
+	filesize                 = map_file.tellg() - filesize;
+	                           map_file.seekg(0, std::ios::beg);
+	char map_header[256];
+	if(!map_file.read(map_header, 256)){ // the first 256 Bytes are all that's needed really
+		#pragma omp critical
+		cout << output.str() << "\nERROR: Can't read header.\n";
+		exit(2);
+	}
+	char* header             = map_header;
+	int map_type             = determine_map_type(header);
+	unsigned int norm        = 1;
+	unsigned int header_end  = DSN6_BLOCKSIZE;
+	bool endian_swap         = false;
+	int mrc_mode             = -1;
+	int tempval;
+	switch(map_type){
+		case dsn6_swap: endian_swap = true;
+		case dsn6:      output << "\t-> DSN6";
+		                norm = 100;
+		                break;
+		case brix:      output << "\t-> BRIX";
+		                break;
+		case mrc:       output << "\t-> MRC";
+		                header_end  = 1024;
+		                if(*((char*)&norm) != (*header || *(header+1))) endian_swap = true;
+		                header_end += *(reinterpret_cast<int*>(read_32bit(header+92))); // add bytes of the extended header
+		                mrc_mode    = *(reinterpret_cast<int*>(read_32bit(header+12)));
+		                break;
+		default:
+		case automatic:
+		                #pragma omp critical
+		                cout << output.str() << "\nERROR: Unknown map file type.\n";
+		                exit(42);
+	}
+	output << (endian_swap ?" endian-swapped":"") << ", file size: " << filesize << "\n";
+	
+	unsigned int data_count  = 0;
+	next_entry("origin");
+	float x_start           = read_entry(header, int);
+	float y_start           = read_entry(header, int);
+	float z_start           = read_entry(header, int);
+	next_entry("extent");
+	unsigned int x_dim       = read_entry(header, int);
+	unsigned int y_dim       = read_entry(header, int);
+	unsigned int z_dim       = read_entry(header, int);
+	unsigned long xy_stride  = x_dim * y_dim;
+	unsigned int f_x_stride  = (((x_dim&7)>0) + (x_dim>>3)) << 6;
+	unsigned int f_xy_stride = f_x_stride * (((y_dim&7)>0) + (y_dim>>3)) << 3;
+	std::streamoff expected  = f_xy_stride * (((z_dim&7)>0) + (z_dim>>3)) + header_end;
+	if(mrc_mode>=0){ // reading mrc file
+		f_x_stride       = x_dim;
+		f_xy_stride      = xy_stride;
+		switch(mrc_mode){
+			case 0:  break;
+			case 1:  f_x_stride  <<= 1;
+			         f_xy_stride <<= 1;
+			         break;
+			case 2:  f_x_stride  <<= 2;
+			         f_xy_stride <<= 2;
+			         break;
+			default: 
+			         #pragma omp critical
+			         cout << output.str() << "ERROR: Only mode 0, 1, 2 are supported for CCP4/MRC map files.\n";
+			         exit(33);
+		}
+		expected         = f_xy_stride * z_dim + header_end;
+	}
+	if(filesize < expected){
+		#pragma omp critical
+		cout << output.str() << "\nERROR: Map file size is too small based on header information (expected: " << expected << " Bytes).\n";
+		exit(3);
+	}
+	next_entry("grid");
+	float inv_x_step        = read_entry(header, int);
+	float inv_y_step        = read_entry(header, int);
+	float inv_z_step        = read_entry(header, int);
+	float x_step            = 1.0 / inv_x_step;
+	float y_step            = 1.0 / inv_y_step;
+	float z_step            = 1.0 / inv_z_step;
+	next_entry("cell");
+	float a_unit            = read_entry(header, float);
+	float b_unit            = read_entry(header, float);
+	float c_unit            = read_entry(header, float);
+	float alpha             = read_entry(header, float);
+	float beta              = read_entry(header, float);
+	float gamma             = read_entry(header, float);
+	float rho_scale         = 1;
+	float offset            = 0;
+	if(map_type<4){
+		next_entry("prod");
+		rho_scale        = norm / read_entry(header, float);
+		next_entry("plus");
+		offset           = read_entry(header, float);
+	}
+	float rho_min, rho_max;
+	double rho_avg, rho_std;
+	bool calc_rho_stat       = true;
+	float x_origin          = 0;
+	float y_origin          = 0;
+	float z_origin          = 0;
+	if(map_type == mrc){ // http://situs.biomachina.org/fmap.pdf
+		x_origin         = read_entry(header, float);
+		y_origin         = read_entry(header, float);
+		z_origin         = read_entry(header, float);
+		if(!((x_origin==0) && (y_origin==0) && (z_origin==0))){ // we tried reading origin fields first and if they are empty, fall back on n*start
+			x_start  = 0;
+			y_start  = 0;
+			z_start  = 0;
+		}
+		rho_min          = read_entry(header, float);
+		rho_max          = read_entry(header, float);
+		rho_avg          = read_entry(header, float);
+		rho_std          = read_entry(header, float);
+		// follows note 5 in documentation:
+		// https://www.ccpem.ac.uk/mrc_format/mrc2014.php#note5
+		calc_rho_stat    = !((rho_min <= rho_max) && (rho_avg >= std::min(rho_min, rho_max)) && (rho_std > 0));
+	}
+	
+	if(map_type<3){
+		float scale     = 1.0 / read_entry(header, int);
+		a_unit          *= scale;
+		b_unit          *= scale;
+		c_unit          *= scale;
+		alpha           *= scale;
+		beta            *= scale;
+		gamma           *= scale;
+	}
+	output << "\t-> x_dim = " << x_dim << ", y_dim = " << y_dim << ", z_dim = " << z_dim << "\n";
+	output << "\t-> a_unit = " << a_unit << ", b_unit = " << b_unit << ", c_unit = " << c_unit << "\n";
+	output << "\t-> alpha = " << alpha << ", beta = " << beta << ", gamma = " << gamma << "\n";
+	
+	alpha                   *= PI / 180.0;
+	beta                    *= PI / 180.0;
+	gamma                   *= PI / 180.0;
+	
+	float inv_a_unit        = 1/a_unit;
+	float inv_b_unit        = 1/b_unit;
+	float inv_c_unit        = 1/c_unit;
+	// r_x = f_x*a + f_y*b*cos(gamma) + f_z*c*cos(beta)
+	// r_y =         f_y*b*sin(gamma) + f_z*c*n
+	// r_z =                            f_z*c*sqrt(sin^2(beta)-n^2)
+	float cos_gamma         = cos(gamma);
+	float cos_beta          = cos(beta);
+	float sin_gamma         = sin(gamma);
+	float inv_sin_gamma     = 1/sin_gamma;
+	float cos_inv_sin_gamma = cos_gamma*inv_sin_gamma;
+	float n                 = (cos(alpha) - cos_gamma*cos_beta)/sin_gamma;
+	float sqrt_factor       = sqrt(1.0 - cos_beta*cos_beta - n*n);
+	float inv_sqrt_factor   = 1/sqrt_factor;
+	// f_x = [r_x - r_y*cos(gamma)/sin(gamma) + r_z * (n*cos(gamma)/sin(gamma)-cos(beta))*1/sqrt(sin^2(beta)-n^2)]/a
+	// f_y = [      r_y*1/sin(gamma)          - r_z*1/sin(gamma)*n/sqrt(sin^2(beta)-n^2)]/b
+	// f_z = [                                  r_z*1/sqrt(sin^2(beta)-n^2)]/c
+	float long_inv_term     = (n*cos_inv_sin_gamma - cos_beta)*inv_sqrt_factor;
+	float inv_sin_gamma_b   = inv_sin_gamma*inv_b_unit;
+	float n_inv_sin_sqrt_b  = n*inv_sin_gamma*inv_sqrt_factor*inv_b_unit;
+	float inv_sqrt_factor_c = inv_sqrt_factor*inv_c_unit;
+	// (r_x)   [ a  b*cos(gamma)              c*cos(beta) ]   (f_x)
+	// (r_y) = [ 0  b*sin(gamma)                     c*n  ] * (f_y)
+	// (r_z)   [ 0       0        c*sqrt(sin^2(beta)-n^2) ]   (f_z)
+	output << "\t-> Fractional to cartesian conversion matrix:\n";
+	output.precision(4);
+	output.setf(ios::fixed, ios::floatfield);
+	output << "\t\t" << std::setw(9) << a_unit << " " << std::setw(9) << b_unit*cos_gamma << " " << std::setw(9) << c_unit*cos_beta << "\n";
+	output << "\t\t" << std::setw(9) << 0 << " " << std::setw(9) << b_unit*sin_gamma << " " << std::setw(9) << c_unit*n << "\n";
+	output << "\t\t" << std::setw(9) << 0 << " " << std::setw(9) << 0 << " " << std::setw(9) << c_unit*sqrt_factor << "\n";
+	// inverse to go from cartesian to fractional:
+	// (f_x)   [ 1/a -1/a*cos(gamma)/sin(gamma)  1/a*(n*cos(gamma)/sin(gamma)-cos(beta))*1/sqrt(sin^2(beta)-n^2) ]   (r_x)
+	// (f_y) = [ 0             1/b*1/sin(gamma)                      -1/b*1/sin(gamma)*n*1/sqrt(sin^2(beta)-n^2) ] * (r_y)
+	// (f_z)   [ 0               0                                                   1/c*1/sqrt(sin^2(beta)-n^2) ]   (r_z)
+	output << "\t-> Cartesian to fractional conversion matrix:\n";
+	output.precision(4);
+	output.setf(ios::fixed, ios::floatfield);
+	output << "\t\t" << std::setw(9) << inv_a_unit << " " << std::setw(9) << -cos_inv_sin_gamma*inv_a_unit << " " << std::setw(9) << long_inv_term*inv_a_unit << "\n";
+	output << "\t\t" << std::setw(9) << 0 << " " << std::setw(9) << inv_sin_gamma_b << " " << std::setw(9) << n_inv_sin_sqrt_b << "\n";
+	output << "\t\t" << std::setw(9) << 0 << " " << std::setw(9) << 0 << " " << std::setw(9) << inv_sqrt_factor_c << "\n";
+	// Make sure we have enough data
+	float density_x_start = x_start * x_step;
+	float density_y_start = y_start * y_step;
+	float density_z_start = z_start * z_step;
+	float density_x_end   = (x_start + x_dim - 1) * x_step;
+	float density_y_end   = (y_start + y_dim - 1) * y_step;
+	float density_z_end   = (z_start + z_dim - 1) * z_step;
+	f2c(density_x_start, density_y_start, density_z_start);
+	f2c(density_x_end, density_y_end, density_z_end);
+	density_x_start       += x_origin;
+	density_x_end         += x_origin;
+	density_y_start       += y_origin;
+	density_y_end         += y_origin;
+	density_z_start       += z_origin;
+	density_z_end         += z_origin;
+	output.precision(4);
+	output << "\t-> density unit cell range: (" << density_x_start << ", " << density_y_start << ", " << density_z_start << ") A to (" << density_x_end << ", " << density_y_end << ", " << density_z_end << ") A\n";
+	densities.resize(xy_stride*z_dim);
+	
+	float rho;
+	if(calc_rho_stat){
+		rho_min = 1e80;
+		rho_max = 0;
+		rho_avg = 0;
+		rho_std = 0;
+	}
+	
+	map_file.seekg(header_end);
+	char* data_block     = new char[f_xy_stride];
+	if(map_type < 4){ // DSN6 and BRIX
+		unsigned z_block, y_block, x_block, data_offset;
+		for(unsigned int z = 0; z < z_dim; z += 8){ // z slow
+			z_block = std::min(z_dim - z, 8u);
+			map_file.read(data_block, f_xy_stride);
+			data_offset = 0;
+			for(unsigned int y = 0; y < y_dim; y += 8){ // y medium
+				y_block = std::min(y_dim - y, 8u);
+				for(unsigned int x = 0; x < x_dim; x += 8){ // x fast
+					x_block = std::min(x_dim - x, 8u);
+					for(unsigned int xb = 0; xb < x_block; xb++){
+						for(unsigned int yb = 0; yb < y_block; yb++){
+							for(unsigned int zb = 0; zb < z_block; zb++){
+								rho = (((unsigned char)data_block[data_offset+((xb+(yb<<3)+(zb<<6))^endian_swap)])-offset)*rho_scale;
+								densities[xyz_idx(x+xb, y+yb, z+zb)] = rho;
+								rho_min  = std::min(rho, rho_min);
+								rho_max  = std::max(rho, rho_max);
+								rho_avg += rho;
+								rho_std += rho*rho;
+							}
+						}
+					}
+					data_offset += 512;
+				}
+			}
+		}
+	} else{ // MRC
+		for(unsigned int z = 0; z < z_dim; z++){ // z slow
+			map_file.read(data_block, f_xy_stride);
+			data_count = 0;
+			for(unsigned int y = 0; y < y_dim; y++){ // y medium
+				for(unsigned int x = 0; x < x_dim; x++){ // x fast
+					read_mrc(rho, data_block+data_count);
+					densities[xyz_idx(x, y, z)] = rho;
+					rho_min = std::min(rho, rho_min);
+					rho_max = std::max(rho, rho_max);
+					if(calc_rho_stat){
+						rho_avg += rho;
+						rho_std += rho*rho;
+					}
+				}
+			}
+		}
+	}
+	delete[] data_block;
+	if(calc_rho_stat){
+		rho_avg /= x_dim * y_dim * z_dim;
+		rho_std /= x_dim * y_dim * z_dim;
+		rho_std -= rho_avg * rho_avg;
+		rho_std  = sqrt(rho_std);
+	}
+	// calculate median
+	std::vector<unsigned int> density_hist(MEDIAN_BINS, 0);
+	float inv_binwidth = MEDIAN_BINS / (rho_max - rho_min);
+	data_count = densities.size();
+	for(unsigned int i=0; i<data_count; i++)
+		density_hist[(unsigned int)floor((densities[i]-rho_min) * inv_binwidth)]++;
+	unsigned int half_count = data_count >> 1; // find median == find bin number with just more than half the points
+	unsigned int median_idx = 0;
+	data_count = 0;
+	while(data_count < half_count)
+		data_count += density_hist[median_idx++];
+	if(map_type == mrc){
+		rho_min -= rho_avg;
+		rho_min /= rho_std;
+		rho_max -= rho_avg;
+		rho_max /= rho_std;
+	}
+	output.precision(3);
+	output << "\t-> density range: " << rho_min << " to " << rho_max << std::setprecision(6) << " (average: " << rho_avg << " +/- " << rho_std << "; median: " << median_idx / inv_binwidth + rho_min << ")\n";
+	map_file.close();
+	double file_reading_ms = seconds_since(runtime)*1000.0;
+	output.precision(3);
+	output.setf(ios::fixed, ios::floatfield);
+	output << "<- Finished reading densities, took " << file_reading_ms << " ms.\n\n";
+	#pragma omp critical
+	cout << output.str();
+	
+	std::size_t ext = filename.find_last_of(".");
+	filename = filename.substr(0, ext) + ".convert.mrc";
+#ifdef PARALLELIZE
+	#pragma omp critical
+#endif
+	cout << "Writing MRC grid map file [" << filename << "]\n";
+	std::ofstream out_file(filename, std::ifstream::binary);
+	if(out_file.fail()){
+		cout << "Error: Can't open grid map output file " << filename << ".\n";
+		exit(1);
+	}
+	struct mrc_header{
+		unsigned int nx;
+		unsigned int ny;
+		unsigned int nz;
+		unsigned int mode       = 2;
+		unsigned int x_start    = 0;
+		unsigned int y_start    = 0;
+		unsigned int z_start    = 0;
+		unsigned int mx;
+		unsigned int my;
+		unsigned int mz;
+		float        cell_a;
+		float        cell_b;
+		float        cell_c;
+		float        alpha      = 90.0f;
+		float        beta       = 90.0f;
+		float        gamma      = 90.0f;
+		unsigned int map_x      = 1;
+		unsigned int map_y      = 2;
+		unsigned int map_z      = 3;
+		float        val_min    = -1.0f;
+		float        val_max    = 1.0f;
+		float        val_avg    = 0;
+		unsigned int spacegroup = 1;
+		unsigned int ext_header = 0;
+		char extra[100];
+		float        x_origin;
+		float        y_origin;
+		float        z_origin;
+		char map_str[4]         = {'M', 'A', 'P', ' '};
+		unsigned int mach_str;
+		float        val_std    = 1.0f;
+		unsigned int nlabel     = 1;
+		char labels[800];
+	} out_header;
+	memset(out_header.extra, 0,100);
+	if(HOST_LITTLE_ENDIAN){
+		out_header.extra[12] = 0xAD;
+		out_header.extra[13] = 0x4E;
+	} else{
+		out_header.extra[14] = 0x4E;
+		out_header.extra[15] = 0xAD;
+	}
+	memset(out_header.labels,0,800);
+	strncpy(out_header.labels, "Cryo2Grid MRC grid map", 23);
+	out_header.nx       = x_dim;
+	out_header.mx       = inv_x_step;
+	out_header.ny       = y_dim;
+	out_header.my       = inv_y_step;
+	out_header.nz       = z_dim;
+	out_header.mz       = inv_z_step;
+	out_header.x_start  = x_start;
+	out_header.y_start  = y_start;
+	out_header.z_start  = z_start;
+	out_header.cell_a   = a_unit;
+	out_header.cell_b   = b_unit;
+	out_header.cell_c   = c_unit;
+	out_header.alpha    = alpha * 180.0/PI;
+	out_header.beta     = beta * 180.0/PI;
+	out_header.gamma    = gamma * 180.0/PI;
+	out_header.x_origin = x_origin;
+	out_header.y_origin = y_origin;
+	out_header.z_origin = z_origin;
+	if((rho_min <= rho_max) && (0 >= std::min(rho_min, rho_max))){
+		out_header.val_min = rho_min;
+		out_header.val_max = rho_max;
+	}
+	out_header.mach_str = HOST_LITTLE_ENDIAN ? 17476 : 4369;
+	
+	out_file.write(reinterpret_cast<char*>(&out_header),sizeof(out_header));
+	out_file.write(reinterpret_cast<char*>(densities.data()), densities.size() * sizeof(float));
+	
+	out_file.close();
+	cout << "<- Finished writing, took " << seconds_since(runtime)*1000.0-file_reading_ms << " ms.\n\n";
+	cout << "Done. Overall runtime was " << seconds_since(runtime)*1000.0 << " ms.\n";
+}
+
 #endif // INCLUDED_MAP_READER
 
