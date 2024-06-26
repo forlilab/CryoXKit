@@ -12,7 +12,7 @@ import sys
 from .cryo2grid_wrapper import *
 
 class Cryo2Grid:
-    def __init__(self, map_files=None, map_receptors=None, rmsd_cutoff=-1.0, repeat_unit_cell=True, output_align_rec=False):
+    def __init__(self, map_files=None, map_receptors=None, rmsd_cutoff=-1.0, gaussian_filter_sigma=0, repeat_unit_cell=True, output_align_rec=False):
         """Initialize the Cryo2Grid object.
 
         Arguments:
@@ -21,21 +21,22 @@ class Cryo2Grid:
         """
         print_version_info()
         
-        self._map_files     = map_files
-        self._map_receptors = map_receptors
-        self._repeat_unit   = repeat_unit_cell
-        self._out_align_rec = output_align_rec
-        self._align_rec     = ''
-        self._map_x_dim     = None
-        self._map_y_dim     = None
-        self._map_z_dim     = None
-        self._map_x_center  = None
-        self._map_y_center  = None
-        self._map_z_center  = None
-        self._grid_spacing  = None
-        self._grid_files    = None
-        self._gridmaps      = None
-        self._rmsd_cutoff   = rmsd_cutoff
+        self._map_files             = map_files
+        self._map_receptors         = map_receptors
+        self._repeat_unit           = repeat_unit_cell
+        self._out_align_rec         = output_align_rec
+        self._align_rec             = ''
+        self._map_x_dim             = None
+        self._map_y_dim             = None
+        self._map_z_dim             = None
+        self._map_x_center          = None
+        self._map_y_center          = None
+        self._map_z_center          = None
+        self._grid_spacing          = None
+        self._grid_files            = None
+        self._gridmaps              = None
+        self._rmsd_cutoff           = rmsd_cutoff
+        self._gaussian_filter_sigma = gaussian_filter_sigma
     
     def ReadGridMaps(self, gridmap_files):
         """Read AD4 grid maps.
@@ -82,7 +83,7 @@ class Cryo2Grid:
             raise RuntimeError('ERROR: No grid maps have been read yet.')
         write_grid_maps(density, self._gridmaps, self._grid_files, write_type);
     
-    def ReadMapFiles(self, map_files=None, map_receptors=None, align_rec=None, map_x_dim=None, map_y_dim=None, map_z_dim=None, map_x_center=None, map_y_center=None, map_z_center=None, grid_spacing=None, rmsd_cutoff=None):
+    def ReadMapFiles(self, map_files=None, map_receptors=None, align_rec=None, map_x_dim=None, map_y_dim=None, map_z_dim=None, map_x_center=None, map_y_center=None, map_z_center=None, grid_spacing=None, rmsd_cutoff=None, gaussian_sigma_filter=None):
         """Read Map (X-ray or CryoEM) file(s)
 
         Arguments:
@@ -91,8 +92,9 @@ class Cryo2Grid:
             align_rec (str): Receptor to align density map receptor(s) to
             map_{x,y,z}_dim (int): Number of grid points in x,y,z-direction
             map_{x,y,z}_center (float): center vector of grid map
-            grid_spacing(float): grid map spacing
-            rmsd_cutoff(float): rmsd cutoff for aligments
+            grid_spacing (float): grid map spacing
+            rmsd_cutoff (float): rmsd cutoff for aligments
+            gaussian_filter_sigma (float): width of gaussian filter to be applied to all density maps (0 means no filter)
         Notes:
             - the map file name can be set at class initialization already
             - the grid map parameters will automatically be set when reading grid maps (see above) but will have to be specified otherwise
@@ -140,7 +142,9 @@ class Cryo2Grid:
             raise RuntimeError('ERROR: Grid map spacing not set.')
         if rmsd_cutoff is None:
             rmsd_cutoff=self._rmsd_cutoff
-        density = average_densities_to_grid(map_files, map_receptors, align_rec, 0, map_x_dim, map_y_dim, map_z_dim, map_x_center, map_y_center, map_z_center, grid_spacing, rmsd_cutoff, self._repeat_unit, self._out_align_rec)
+        if gaussian_filter_sigma is None:
+            gaussian_filter_sigma=self._gaussian_filter_sigma
+        density = average_densities_to_grid(map_files, map_receptors, align_rec, 0, map_x_dim, map_y_dim, map_z_dim, map_x_center, map_y_center, map_z_center, grid_spacing, rmsd_cutoff, gaussian_filter_sigma, self._repeat_unit, self._out_align_rec)
         return density;
 
     def ModifyDensity(self, density, log_max=-3.0, width=-4, x0=-1):

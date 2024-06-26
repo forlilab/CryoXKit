@@ -246,6 +246,78 @@ void write_grid_maps(
 	}
 }
 
+#define gaussian_ah 0.0969903
+#define gaussian_bh -0.00308563
+#define gaussian_ch 3.15502e-05
+#define gaussian_al 0.402882
+#define gaussian_bl 0.0801046
+#define gaussian_cl 0.00960476
+#define gaussian_dl 0.00125787
+#define gaussian_el 1.03758e-05
+template<typename T>
+inline T gaussfit(T xs2)
+{
+	return (1.0-xs2*(gaussian_ah+xs2*(gaussian_bh+gaussian_ch*xs2))) / (1.0+xs2*(gaussian_al+xs2*(gaussian_bl+xs2*(gaussian_cl+xs2*(gaussian_dl+gaussian_el*xs2*xs2)))));
+}
+
+std::vector<fp_num> gaussian_convolution(
+                                         std::vector<fp_num> density,
+                                         fp_num  sigma  = 2,
+                                         fp_num  cutoff = 8
+                                  )
+{
+	unsigned int off     = density[0];
+	unsigned int map_x_p = density[1] + 1;
+	unsigned int map_y_p = density[2] + 1;
+	unsigned int map_z_p = density[3] + 1;
+	unsigned int g1      = map_x_p;
+	unsigned int g2      = g1 * map_y_p;
+	std::vector<fp_num> result(density.size());
+	memcpy(result.data(), density.data(), off * sizeof(fp_num));
+	fp_num cut           = cutoff / density[7];
+	fp_num g_factor      = density[7] * density[7] / (sigma * sigma);
+	fp_num cut2          = cut*cut;
+	#pragma omp parallel for
+	for(unsigned int i = 0;
+	                 i < g2*map_z_p;
+	                 i++)
+	{
+		// idx = x + g1*y + g2*z (g2 = g1 * (map_y + 1))
+		unsigned int gz = i / g2; // idx / g2 = z
+		// idx / g1 = y + g2/g1*z = y + (map_y+1)*z
+		unsigned int gy = i / g1 - map_y_p * gz;
+		unsigned int gx = i - g1*gy - g2*gz; // idx = x + g1*y + g2*z
+		int x_start      = std::max(0,(int)floor(gx-cut));
+		int x_end        = std::min((int)map_x_p,(int)ceil(gx+cut));
+		int y_start      = std::max(0,(int)floor(gy-cut));
+		int y_end        = std::min((int)map_y_p,(int)ceil(gy+cut));
+		int z_end        = std::min((int)map_z_p,(int)ceil(gz+cut));
+		fp_num integral  = 0;
+		unsigned int ctr = 0;
+		for(int z = std::max(0,(int)floor(gz-cut)); z < z_end; z++){
+			fp_num dist_z2 = (gz-z)*(gz-z);
+			if(dist_z2 < cut2){ // no need to go through the motions if we're already too far ...
+				for(int y = y_start; y < y_end; y++){
+					fp_num dist_zy2 = dist_z2 + (gy-y)*(gy-y);
+					if(dist_zy2 < cut2){
+					for(int x = x_start; x < x_end; x++)
+						{
+							// calculate (square) distance from current grid point to current location
+							fp_num dist2  = (gx-x)*(gx-x) + dist_zy2;
+							if(dist2 < cut2){
+								integral += density[off + x  + y*g1  + z*g2] * gaussfit(g_factor * dist2);
+								ctr++;
+							}
+						}
+					}
+				}
+			}
+		}
+		result[i + off] = (ctr > 0) ? integral / ctr : 0;
+	}
+	return result;
+}
+
 std::vector<fp_num> average_densities_to_grid(
                                               std::vector<std::string> map_files,
                                               std::vector<std::string> map_receptors,
@@ -259,6 +331,7 @@ std::vector<fp_num> average_densities_to_grid(
                                               fp_num       map_z_center,
                                               fp_num       grid_spacing,
                                               fp_num       rmsd_cutoff,
+                                              fp_num       gaussian_filter_sigma,
                                               bool         repeat_unit_cell,
                                               bool         output_align_rec
                                              )
@@ -302,6 +375,10 @@ std::vector<fp_num> average_densities_to_grid(
 		                                grid_align
 		                               );
 		if(grid_align != NULL) delete[] grid_align;
+		if(gaussian_filter_sigma > EPS) densities[i] = gaussian_convolution(
+		                                                                    densities[i],
+		                                                                    gaussian_filter_sigma
+		                                                                   );
 		
 		// normalize if more than one map file
 		if(map_files.size() > 1){
