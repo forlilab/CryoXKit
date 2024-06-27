@@ -211,7 +211,7 @@ class CustomBuildExt(build_ext):
         self.compiler.compiler_so.insert(2, "-Wno-deprecated")
         self.compiler.compiler_so.append("-std=gnu++11")
         self.compiler.compiler_so.append("-Wno-long-long")
-#        self.compiler.compiler_so.append("-fopenmp")
+        self.compiler.compiler_so.append("-fopenmp")
 
         print('- compiler options: %s' % self.compiler.compiler_so)
         build_ext.build_extensions(self)
@@ -228,6 +228,7 @@ if os.path.exists('python'):
 c2g_extension = Extension(
     'cryo2grid._cryo2grid_wrapper',
     sources=['src/cryo2grid.cpp', c2g_swig_interface],
+    extra_link_args=('-fopenmp ').split(),
     swig_opts=['-threads']
 )
 

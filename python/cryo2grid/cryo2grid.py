@@ -83,7 +83,7 @@ class Cryo2Grid:
             raise RuntimeError('ERROR: No grid maps have been read yet.')
         write_grid_maps(density, self._gridmaps, self._grid_files, write_type);
     
-    def ReadMapFiles(self, map_files=None, map_receptors=None, align_rec=None, map_x_dim=None, map_y_dim=None, map_z_dim=None, map_x_center=None, map_y_center=None, map_z_center=None, grid_spacing=None, rmsd_cutoff=None, gaussian_sigma_filter=None):
+    def ReadMapFiles(self, map_files=None, map_receptors=None, align_rec=None, map_x_dim=None, map_y_dim=None, map_z_dim=None, map_x_center=None, map_y_center=None, map_z_center=None, grid_spacing=None, rmsd_cutoff=None, gaussian_filter_sigma=None):
         """Read Map (X-ray or CryoEM) file(s)
 
         Arguments:
