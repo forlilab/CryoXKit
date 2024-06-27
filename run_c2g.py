@@ -3,13 +3,16 @@
 import argparse
 from cryo2grid import Cryo2Grid
 
-parser = argparse.ArgumentParser(description='Convert CryoEM/X-ray maps to AutoDock grid maps.')
+parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument('-C', '--convert2mrc', type=str, help='Convert density map to mrc file name')
-args = parser.parse_args()
-if args.convert2mrc is not None:
+args = parser.parse_known_args()
+if args[0].convert2mrc is not None:
     c2g = Cryo2Grid()
-    c2g.Convert2MRC(args.convert2mrc)
+    c2g.Convert2MRC(args[0].convert2mrc)
     exit(0)
+
+parser = argparse.ArgumentParser(description='Convert CryoEM/X-ray maps to AutoDock grid maps.', add_help=True)
+parser.add_argument('-C', '--convert2mrc', type=str, help='Convert density map to mrc file name')
 parser.add_argument('-m', '--map-file', nargs='+', type=str, help='Density map file name', required=True)
 parser.add_argument('-r', '--map-receptor', nargs='+', type=str, help='Receptor associated with density map')
 parser.add_argument('-g', '--grid-maps', nargs='+', type=str, help='Grid map file name(s)', required=True)
