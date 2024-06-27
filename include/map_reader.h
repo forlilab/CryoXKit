@@ -182,6 +182,80 @@ inline void apply_periodicity(
 	while(r < 0) r += len;
 }
 
+inline std::vector<fp_num> gaussian_convolution(
+                                                std::vector<fp_num> density,
+                                                fp_num  sigma  = 2,
+                                                fp_num  cutoff = 8
+                                               )
+{
+	unsigned int off     = density[0];
+	unsigned int map_x_p = density[1] + 1;
+	unsigned int map_y_p = density[2] + 1;
+	unsigned int map_z_p = density[3] + 1;
+	unsigned int g1      = map_x_p;
+	unsigned int g2      = g1 * map_y_p;
+	std::vector<fp_num> result(density.size());
+	memcpy(result.data(), density.data(), off * sizeof(fp_num));
+	fp_num cut           = cutoff / density[7];
+	fp_num g_factor      = density[7] * density[7] / (sigma * sigma);
+	fp_num cut2          = cut*cut;
+	fp_num rho_min       =  1e80;
+	fp_num rho_max       = -1e80;
+	fp_num rho_avg       = 0;
+	fp_num rho_std       = 0;
+	#pragma omp parallel for schedule(dynamic,1)
+	for(unsigned int i = 0;
+	                 i < g2*map_z_p;
+	                 i++)
+	{
+		// idx = x + g1*y + g2*z (g2 = g1 * (map_y + 1))
+		unsigned int gz = i / g2; // idx / g2 = z
+		// idx / g1 = y + g2/g1*z = y + (map_y+1)*z
+		unsigned int gy = i / g1 - map_y_p * gz;
+		unsigned int gx = i - g1*gy - g2*gz; // idx = x + g1*y + g2*z
+		int x_start      = std::max(0,(int)floor(gx-cut));
+		int x_end        = std::min((int)map_x_p,(int)ceil(gx+cut));
+		int y_start      = std::max(0,(int)floor(gy-cut));
+		int y_end        = std::min((int)map_y_p,(int)ceil(gy+cut));
+		int z_end        = std::min((int)map_z_p,(int)ceil(gz+cut));
+		fp_num integral  = 0;
+		fp_num wsum      = 0;
+		for(int z = std::max(0,(int)floor(gz-cut)); z < z_end; z++){
+			fp_num dist_z2 = (gz-z)*(gz-z);
+			if(dist_z2 < cut2){ // no need to go through the motions if we're already too far ...
+				for(int y = y_start; y < y_end; y++){
+					fp_num dist_zy2 = dist_z2 + (gy-y)*(gy-y);
+					if(dist_zy2 < cut2){
+						for(int x = x_start; x < x_end; x++){
+							// calculate (square) distance from current grid point to current location
+							fp_num dist2  = (gx-x)*(gx-x) + dist_zy2;
+							if(dist2 < cut2){
+								fp_num weight = gaussfit(g_factor * dist2);
+								integral     += weight * density[off + x  + y*g1  + z*g2];
+								wsum         += weight;
+							}
+						}
+					}
+				}
+			}
+		}
+		integral = (wsum > 0) ? integral / wsum : 0;
+		result[i + off] = integral;
+		rho_min = std::min(integral, rho_min);
+		rho_max = std::max(integral, rho_max);
+		rho_avg += integral;
+		rho_std += integral*integral;
+	}
+	rho_avg   /= g2*map_z_p;
+	rho_std   /= g2*map_z_p;
+	rho_std   -= rho_avg * rho_avg;
+	rho_std    = sqrt(rho_std);
+	result[8]  = rho_min;
+	result[9]  = rho_max;
+	result[11] = rho_std;
+	return result;
+}
+
 inline std::vector<fp_num> read_map_to_grid(
                                             std::string  filename,
                                                      int map_type,
@@ -192,8 +266,9 @@ inline std::vector<fp_num> read_map_to_grid(
                                             fp_num       map_y_center,
                                             fp_num       map_z_center,
                                             fp_num       grid_spacing,
-                                            bool         repeat_unit_cell = true,
-                                            fp_num*      grid_align       = NULL
+                                            fp_num       gaussian_filter_sigma = 0,
+                                            bool         repeat_unit_cell      = true,
+                                            fp_num*      grid_align            = NULL
                                            )
 {
 	timeval runtime;
@@ -631,11 +706,11 @@ inline std::vector<fp_num> read_map_to_grid(
 				/*       /                             */
 				/*      X                              */
 				int x_high = x_dim - 1;
-				x_high = ((int)x_low < x_high) ? 1 : -x_high;
+				    x_high = ((int)x_low < x_high) ? 1 : -x_high;
 				int y_high = y_dim - 1;
-				y_high = ((int)y_low < y_high) ? x_dim : -y_high*x_dim;
+				    y_high = ((int)y_low < y_high) ? x_dim : -y_high*x_dim;
 				int z_high = z_dim - 1;
-				z_high = ((int)z_low < z_high) ? xy_stride : -z_high*xy_stride;
+				    z_high = ((int)z_low < z_high) ? xy_stride : -z_high*xy_stride;
 				
 				density = omdz * (omdy * (data_point[0]               * omdx + data_point[x_high]                   * dx) +
 				                    dy * (data_point[y_high]          * omdx + data_point[x_high + y_high]          * dx)) +
@@ -651,9 +726,24 @@ inline std::vector<fp_num> read_map_to_grid(
 			}
 		}
 	}
+	double current_ms = seconds_since(runtime)*1000.0;
+	output << "<- Finished interpolating densities to grid map points, took " << current_ms - file_reading_ms << " ms.\n\n";
 	grid_map[8]  = rho_min;
 	grid_map[9]  = rho_max;
+	grid_map[11] = rho_std;
+	if(gaussian_filter_sigma > EPS){
+		output << "Applying Gaussian filter with width of " << gaussian_filter_sigma << " A\n";
+		grid_map = gaussian_convolution(
+		                                grid_map,
+		                                gaussian_filter_sigma
+		                               );
+		output << "<- Done, took " << seconds_since(runtime)*1000.0 - current_ms << " ms.\n\n";
+		current_ms = seconds_since(runtime)*1000.0;
+	}
 	// calculate median
+	output << "Calculating median\n";
+	rho_min      = grid_map[8]; // in case the gaussian filter changed them
+	rho_max      = grid_map[9];
 	memset(density_hist.data(), 0, MEDIAN_BINS*sizeof(unsigned int));
 	inv_binwidth = MEDIAN_BINS / (rho_max - rho_min);
 	for(unsigned int i=12; i<grid_map.size(); i++)
@@ -663,9 +753,8 @@ inline std::vector<fp_num> read_map_to_grid(
 	for(median_idx = 0; (data_count < half_count) && (median_idx < MEDIAN_BINS); median_idx++)
 		data_count += density_hist[median_idx++];
 	grid_map[10] = (fp_num)median_idx / MEDIAN_BINS;
-	grid_map[11] = rho_std;
 	output << "\t-> range: " << grid_map[8] << " to " << grid_map[9] << " (median: " << grid_map[10] * (grid_map[9] - grid_map[8]) + grid_map[8] << ")\n";
-	output << "<- Finished interpolating densities to grid map points, took " << seconds_since(runtime)*1000.0 - file_reading_ms << " ms.\n\n";
+	output << "<- Done, took " << seconds_since(runtime)*1000.0 - current_ms << " ms.\n\n";
 	#pragma omp critical
 	cout << output.str();
 	

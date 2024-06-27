@@ -44,6 +44,8 @@ enum grid_map_write_modes{
 #include <omp.h>
 #endif
 
+#define gaussfit(xs2) ((1-(xs2)*(0.0969903f+(xs2)*(-0.00308563f+3.15502e-05f*(xs2)))) / (1+(xs2)*(0.402882f +(xs2)*( 0.0801046f+(xs2)*(0.00960476f+(xs2)*(0.00125787f+1.03758e-05f*(xs2)*(xs2)))))))
+
 static unsigned short static_one = 1;
 #define HOST_LITTLE_ENDIAN (*(unsigned char*)&static_one == 1)
 

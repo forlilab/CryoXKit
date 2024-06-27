@@ -100,8 +100,6 @@ std::string get_grid_receptor_filename(
 	return rec_name;
 }
 
-#define gauss_exp(xs2) ((1-(xs2)*(0.0969903f+(xs2)*(-0.00308563f+3.15502e-05f*(xs2)))) / (1+(xs2)*(0.402882f +(xs2)*( 0.0801046f+(xs2)*(0.00960476f+(xs2)*(0.00125787f+1.03758e-05f*(xs2)*(xs2)))))))
-
 std::vector<fp_num> create_mask(
                                 std::vector<fp_num> grid_or_mask,
                                 std::string         mask_pdb,
@@ -150,9 +148,9 @@ std::vector<fp_num> create_mask(
 					               (mask_atoms[i].z-grid_pos.vec[2])*(mask_atoms[i].z-grid_pos.vec[2]);
 					if(dist2 <= cutoff2){
 						if(subtractive)
-							result[idx] -= gauss_exp(g_factor*dist2);
+							result[idx] -= gaussfit(g_factor*dist2);
 						else
-							result[idx] += gauss_exp(g_factor*dist2);
+							result[idx] += gaussfit(g_factor*dist2);
 					}
 				}
 			}
@@ -246,63 +244,6 @@ void write_grid_maps(
 	}
 }
 
-std::vector<fp_num> gaussian_convolution(
-                                         std::vector<fp_num> density,
-                                         fp_num  sigma  = 2,
-                                         fp_num  cutoff = 8
-                                  )
-{
-	unsigned int off     = density[0];
-	unsigned int map_x_p = density[1] + 1;
-	unsigned int map_y_p = density[2] + 1;
-	unsigned int map_z_p = density[3] + 1;
-	unsigned int g1      = map_x_p;
-	unsigned int g2      = g1 * map_y_p;
-	std::vector<fp_num> result(density.size());
-	memcpy(result.data(), density.data(), off * sizeof(fp_num));
-	fp_num cut           = cutoff / density[7];
-	fp_num g_factor      = density[7] * density[7] / (sigma * sigma);
-	fp_num cut2          = cut*cut;
-	#pragma omp parallel for
-	for(unsigned int i = 0;
-	                 i < g2*map_z_p;
-	                 i++)
-	{
-		// idx = x + g1*y + g2*z (g2 = g1 * (map_y + 1))
-		unsigned int gz = i / g2; // idx / g2 = z
-		// idx / g1 = y + g2/g1*z = y + (map_y+1)*z
-		unsigned int gy = i / g1 - map_y_p * gz;
-		unsigned int gx = i - g1*gy - g2*gz; // idx = x + g1*y + g2*z
-		int x_start      = std::max(0,(int)floor(gx-cut));
-		int x_end        = std::min((int)map_x_p,(int)ceil(gx+cut));
-		int y_start      = std::max(0,(int)floor(gy-cut));
-		int y_end        = std::min((int)map_y_p,(int)ceil(gy+cut));
-		int z_end        = std::min((int)map_z_p,(int)ceil(gz+cut));
-		fp_num integral  = 0;
-		unsigned int ctr = 0;
-		for(int z = std::max(0,(int)floor(gz-cut)); z < z_end; z++){
-			fp_num dist_z2 = (gz-z)*(gz-z);
-			if(dist_z2 < cut2){ // no need to go through the motions if we're already too far ...
-				for(int y = y_start; y < y_end; y++){
-					fp_num dist_zy2 = dist_z2 + (gy-y)*(gy-y);
-					if(dist_zy2 < cut2){
-						for(int x = x_start; x < x_end; x++){
-							// calculate (square) distance from current grid point to current location
-							fp_num dist2  = (gx-x)*(gx-x) + dist_zy2;
-							if(dist2 < cut2){
-								integral += density[off + x  + y*g1  + z*g2] * gauss_exp(g_factor * dist2);
-								ctr++;
-							}
-						}
-					}
-				}
-			}
-		}
-		result[i + off] = (ctr > 0) ? integral / ctr : 0;
-	}
-	return result;
-}
-
 std::vector<fp_num> average_densities_to_grid(
                                               std::vector<std::string> map_files,
                                               std::vector<std::string> map_receptors,
@@ -328,7 +269,10 @@ std::vector<fp_num> average_densities_to_grid(
 	std::vector<std::vector<fp_num>> densities, weights;
 	densities.resize(map_files.size());
 	if(map_files.size() > 1) weights.resize(map_files.size());
-	#pragma omp parallel for
+#ifdef PARALLELIZE
+	omp_set_max_active_levels(2);
+#endif
+	#pragma omp parallel for schedule(dynamic)
 	for(unsigned int i=0; i<map_files.size(); i++){
 		fp_num* grid_align = NULL;
 		if(i < map_receptors.size())
@@ -356,14 +300,11 @@ std::vector<fp_num> average_densities_to_grid(
 		                                map_y_center,
 		                                map_z_center,
 		                                grid_spacing,
+		                                gaussian_filter_sigma,
 		                                repeat_unit_cell,
 		                                grid_align
 		                               );
 		if(grid_align != NULL) delete[] grid_align;
-		if(gaussian_filter_sigma > EPS) densities[i] = gaussian_convolution(
-		                                                                    densities[i],
-		                                                                    gaussian_filter_sigma
-		                                                                   );
 		
 		// normalize if more than one map file
 		if(map_files.size() > 1){
