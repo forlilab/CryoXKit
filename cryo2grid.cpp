@@ -246,20 +246,6 @@ void write_grid_maps(
 	}
 }
 
-#define gaussian_ah 0.0969903
-#define gaussian_bh -0.00308563
-#define gaussian_ch 3.15502e-05
-#define gaussian_al 0.402882
-#define gaussian_bl 0.0801046
-#define gaussian_cl 0.00960476
-#define gaussian_dl 0.00125787
-#define gaussian_el 1.03758e-05
-template<typename T>
-inline T gaussfit(T xs2)
-{
-	return (1.0-xs2*(gaussian_ah+xs2*(gaussian_bh+gaussian_ch*xs2))) / (1.0+xs2*(gaussian_al+xs2*(gaussian_bl+xs2*(gaussian_cl+xs2*(gaussian_dl+gaussian_el*xs2*xs2)))));
-}
-
 std::vector<fp_num> gaussian_convolution(
                                          std::vector<fp_num> density,
                                          fp_num  sigma  = 2,
@@ -300,12 +286,11 @@ std::vector<fp_num> gaussian_convolution(
 				for(int y = y_start; y < y_end; y++){
 					fp_num dist_zy2 = dist_z2 + (gy-y)*(gy-y);
 					if(dist_zy2 < cut2){
-					for(int x = x_start; x < x_end; x++)
-						{
+						for(int x = x_start; x < x_end; x++){
 							// calculate (square) distance from current grid point to current location
 							fp_num dist2  = (gx-x)*(gx-x) + dist_zy2;
 							if(dist2 < cut2){
-								integral += density[off + x  + y*g1  + z*g2] * gaussfit(g_factor * dist2);
+								integral += density[off + x  + y*g1  + z*g2] * gauss_exp(g_factor * dist2);
 								ctr++;
 							}
 						}
