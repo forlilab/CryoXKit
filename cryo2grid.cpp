@@ -170,7 +170,9 @@ std::vector<fp_num> apply_mask(
                                std::vector<fp_num> mask
                               )
 {
-	if(density.size()-density[0] != mask.size() - mask[0]){
+	size_t mask_off = mask[0];
+	size_t dens_off = density[0];
+	if(density.size() - dens_off != mask.size() - mask_off){
 		cout << "ERROR: Mask has different dimensions from density map.\n";
 		exit(7);
 	}
@@ -178,23 +180,53 @@ std::vector<fp_num> apply_mask(
 	start_timer(runtime);
 	cout << "Applying density mask ...\n";
 	std::vector<fp_num> result(density.size(), 0);
-	memcpy(result.data(), density.data(), density[0] * sizeof(fp_num));
+	memcpy(result.data(), density.data(), dens_off * sizeof(fp_num));
 	// shift and normalize
-	fp_num mask_min = 1;
-	fp_num mask_max = 0;
-	for(unsigned int i=mask[0]; i<mask.size(); i++){
-		if(mask_min > mask[i]) mask_min = mask[i];
-		if(mask_max < mask[i]) mask_max = mask[i];
+	fp_num mask_min = 1e80;
+	fp_num mask_max = -1e80;
+	for(unsigned int i=mask_off; i<mask.size(); i++){
+		mask_min = std::min(mask_min, mask[i]);
+		mask_max = std::max(mask_max, mask[i]);
 	}
-	for(unsigned int i=0; i<density.size()-(unsigned int)density[0]; i++){
-		fp_num mask_val = mask[i+(unsigned int)mask[0]];
+	fp_num rho_min  =  1e80;
+	fp_num rho_max  = -1e80;
+	fp_num rho_avg  = 0;
+	fp_num rho_std  = 0;
+	for(unsigned int i=0; i<density.size()-dens_off; i++){
+		fp_num mask_val = mask[i+mask_off];
 		if(mask_val < 0){
-			mask_val = (mask_min < -EPS) ? mask_val/(-mask_min) + 1 : 1;
+			mask_val = (mask_min < -EPS) ? 1 - mask_val / mask_min : 0; // mask_val/mask_min is positive as both are negative
 		} else{
-			mask_val = (mask_max > EPS)  ? mask_val/mask_max        : 1;
+			mask_val = (mask_max > EPS)  ? mask_val / mask_max : 1;
 		}
-		result[i+(unsigned int)density[0]] = density[i+(unsigned int)density[0]] * mask_val;
+		mask_val *= density[i+dens_off];
+		result[i+dens_off] = mask_val;
+		rho_min = std::min(mask_val, rho_min);
+		rho_max = std::max(mask_val, rho_max);
+		rho_avg += mask_val;
+		rho_std += mask_val*mask_val;
 	}
+	rho_avg   /= density.size()-dens_off;
+	rho_std   /= density.size()-dens_off;
+	rho_std   -= rho_avg * rho_avg;
+	rho_std    = sqrt(rho_std);
+	result[8]  = rho_min;
+	result[9]  = rho_max;
+	result[11] = rho_std;
+	// calculate median
+	std::vector<fp_num> density_hist(MEDIAN_BINS, 0);
+	fp_num inv_binwidth = MEDIAN_BINS / (rho_max - rho_min);
+	for(unsigned int j=(unsigned int)result[0]; j<result.size(); j++)
+		density_hist[(unsigned int)floor((result[j]-rho_min) * inv_binwidth)]++;
+	unsigned int half_count = (result.size() - (unsigned int)result[0]) >> 1; // find median == find bin number with just more than half the points
+	unsigned int median_idx = 0;
+	unsigned int data_count = 0;
+	for(median_idx = 0; (data_count < half_count) && (median_idx < MEDIAN_BINS); median_idx++)
+		data_count += density_hist[median_idx++];
+	result[10] = (fp_num)median_idx / MEDIAN_BINS;
+	cout.precision(3);
+	cout.setf(ios::fixed, ios::floatfield);
+	cout << "\t-> range: " << result[8] << " to " << result[9] << " (median: " << result[10] * (result[9] - result[8]) + result[8] << ")\n";
 	cout << "<- Finished, took " << seconds_since(runtime)*1000.0 << " ms.\n\n";;
 	return result;
 }
