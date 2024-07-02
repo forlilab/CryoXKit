@@ -290,6 +290,7 @@ std::vector<fp_num> average_densities_to_grid(
                                               fp_num       grid_spacing,
                                               fp_num       rmsd_cutoff,
                                               fp_num       gaussian_filter_sigma,
+                                              fp_num       noise_std_range,
                                               bool         repeat_unit_cell,
                                               bool         output_align_rec
                                              )
@@ -333,6 +334,7 @@ std::vector<fp_num> average_densities_to_grid(
 		                                map_z_center,
 		                                grid_spacing,
 		                                gaussian_filter_sigma,
+		                                noise_std_range,
 		                                repeat_unit_cell,
 		                                grid_align
 		                               );

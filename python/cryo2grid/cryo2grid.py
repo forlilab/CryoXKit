@@ -12,7 +12,7 @@ import sys
 from .cryo2grid_wrapper import *
 
 class Cryo2Grid:
-    def __init__(self, map_files=None, map_receptors=None, rmsd_cutoff=-1.0, gaussian_filter_sigma=0, repeat_unit_cell=True, output_align_rec=False):
+    def __init__(self, map_files=None, map_receptors=None, rmsd_cutoff=-1.0, gaussian_filter_sigma=0, noise_std_range=0, repeat_unit_cell=True, output_align_rec=False):
         """Initialize the Cryo2Grid object.
 
         Arguments:
@@ -37,6 +37,7 @@ class Cryo2Grid:
         self._gridmaps              = None
         self._rmsd_cutoff           = rmsd_cutoff
         self._gaussian_filter_sigma = gaussian_filter_sigma
+        self._noise_std_range       = noise_std_range
     
     def ReadGridMaps(self, gridmap_files):
         """Read AD4 grid maps.
@@ -83,7 +84,7 @@ class Cryo2Grid:
             raise RuntimeError('ERROR: No grid maps have been read yet.')
         write_grid_maps(density, self._gridmaps, self._grid_files, write_type);
     
-    def ReadMapFiles(self, map_files=None, map_receptors=None, align_rec=None, map_x_dim=None, map_y_dim=None, map_z_dim=None, map_x_center=None, map_y_center=None, map_z_center=None, grid_spacing=None, rmsd_cutoff=None, gaussian_filter_sigma=None):
+    def ReadMapFiles(self, map_files=None, map_receptors=None, align_rec=None, map_x_dim=None, map_y_dim=None, map_z_dim=None, map_x_center=None, map_y_center=None, map_z_center=None, grid_spacing=None, rmsd_cutoff=None, gaussian_filter_sigma=None, noise_std_range=None):
         """Read Map (X-ray or CryoEM) file(s)
 
         Arguments:
@@ -95,6 +96,7 @@ class Cryo2Grid:
             grid_spacing (float): grid map spacing
             rmsd_cutoff (float): rmsd cutoff for aligments
             gaussian_filter_sigma (float): width of gaussian filter to be applied to all density maps (0 means no filter)
+            noise_std_range (float): width as a fraction of std.dev. of noise to add (negative means add before gaussian convolution)
         Notes:
             - the map file name can be set at class initialization already
             - the grid map parameters will automatically be set when reading grid maps (see above) but will have to be specified otherwise
@@ -144,7 +146,9 @@ class Cryo2Grid:
             rmsd_cutoff=self._rmsd_cutoff
         if gaussian_filter_sigma is None:
             gaussian_filter_sigma=self._gaussian_filter_sigma
-        density = average_densities_to_grid(map_files, map_receptors, align_rec, 0, map_x_dim, map_y_dim, map_z_dim, map_x_center, map_y_center, map_z_center, grid_spacing, rmsd_cutoff, gaussian_filter_sigma, self._repeat_unit, self._out_align_rec)
+        if noise_std_range is None:
+            noise_std_range=self._noise_std_range
+        density = average_densities_to_grid(map_files, map_receptors, align_rec, 0, map_x_dim, map_y_dim, map_z_dim, map_x_center, map_y_center, map_z_center, grid_spacing, rmsd_cutoff, gaussian_filter_sigma, noise_std_range, self._repeat_unit, self._out_align_rec)
         return density;
 
     def ModifyDensity(self, density, log_max=-3.0, width=-4, x0=-1):

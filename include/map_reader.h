@@ -186,6 +186,43 @@ inline void apply_periodicity(
 
 #define GAUSS_ZIGGURAT_NORM (1.0/3.442619855899)
 
+inline std::vector<fp_num> add_normal_noise(
+                                            std::vector<fp_num> density,
+                                            fp_num  sigma  = 1
+                                           )
+{
+	unsigned int off     = density[0];
+	std::vector<fp_num> result(density.size());
+	memcpy(result.data(), density.data(), off * sizeof(fp_num));
+	fp_num rho_min       =  1e80;
+	fp_num rho_max       = -1e80;
+	fp_num rho_avg       = 0;
+	fp_num rho_std       = 0;
+	__uint32_t seed = time(NULL);
+	init_CMWC4096(seed);
+	zigset();
+	double scale = GAUSS_ZIGGURAT_NORM * sigma;
+	for(unsigned int i = off;
+	                 i < density.size();
+	                 i++)
+	{
+		fp_num val = density[i] + ran_n()*scale;
+		result[i]  = val;
+		rho_min    = std::min(val, rho_min);
+		rho_max    = std::max(val, rho_max);
+		rho_avg   += val;
+		rho_std   += val*val;
+	}
+	rho_avg   /= density.size() - off;
+	rho_std   /= density.size() - off;
+	rho_std   -= rho_avg * rho_avg;
+	rho_std    = sqrt(rho_std);
+	result[8]  = rho_min;
+	result[9]  = rho_max;
+	result[11] = rho_std;
+	return result;
+}
+
 inline std::vector<fp_num> gaussian_convolution(
                                                 std::vector<fp_num> density,
                                                 fp_num  sigma  = 2,
@@ -204,31 +241,6 @@ inline std::vector<fp_num> gaussian_convolution(
 	fp_num rho_max       = -1e80;
 	fp_num rho_avg       = 0;
 	fp_num rho_std       = 0;
-	if(sigma < 0){ // only adding normal-distributed noise based on std.dev.
-		__uint32_t seed = time(NULL);
-		init_CMWC4096(seed);
-		zigset();
-		double scale = GAUSS_ZIGGURAT_NORM * fabs(sigma) * density[11];
-		for(unsigned int i = off;
-		                 i < density.size();
-		                 i++)
-		{
-			fp_num val = density[i] + ran_n()*scale;
-			result[i]  = val;
-			rho_min    = std::min(val, rho_min);
-			rho_max    = std::max(val, rho_max);
-			rho_avg   += val;
-			rho_std   += val*val;
-		}
-		rho_avg   /= g2*map_z_p;
-		rho_std   /= g2*map_z_p;
-		rho_std   -= rho_avg * rho_avg;
-		rho_std    = sqrt(rho_std);
-		result[8]  = rho_min;
-		result[9]  = rho_max;
-		result[11] = rho_std;
-		return result;
-	}
 	fp_num cut           = cutoff / density[7];
 	fp_num g_factor      = density[7] * density[7] / (sigma * sigma);
 	fp_num cut2          = cut*cut;
@@ -301,6 +313,7 @@ inline std::vector<fp_num> read_map_to_grid(
                                             fp_num       map_z_center,
                                             fp_num       grid_spacing,
                                             fp_num       gaussian_filter_sigma = 0,
+                                            fp_num       noise_std_range       = 0,
                                             bool         repeat_unit_cell      = true,
                                             fp_num*      grid_align            = NULL
                                            )
@@ -765,12 +778,30 @@ inline std::vector<fp_num> read_map_to_grid(
 	grid_map[8]  = rho_min;
 	grid_map[9]  = rho_max;
 	grid_map[11] = rho_std;
-	if(fabs(gaussian_filter_sigma) > EPS){
-		output << "Applying " << ((gaussian_filter_sigma > 0) ? "Gaussian" : "Normal-distributed noise") << " filter with width of " << fabs(gaussian_filter_sigma) << " A\n";
+	if(noise_std_range < -EPS){
+		output << "Applying Normal-distributed noise with width of " << fabs(noise_std_range*rho_std) << " A\n";
+		grid_map = add_normal_noise(
+		                            grid_map,
+		                            fabs(noise_std_range*rho_std)
+		                           );
+		output << "<- Done, took " << seconds_since(runtime)*1000.0 - current_ms << " ms.\n\n";
+		current_ms = seconds_since(runtime)*1000.0;
+	}
+	if(gaussian_filter_sigma > EPS){
+		output << "Applying Gaussian filter with width of " << gaussian_filter_sigma << " A\n";
 		grid_map = gaussian_convolution(
 		                                grid_map,
 		                                gaussian_filter_sigma
 		                               );
+		output << "<- Done, took " << seconds_since(runtime)*1000.0 - current_ms << " ms.\n\n";
+		current_ms = seconds_since(runtime)*1000.0;
+	}
+	if(noise_std_range > EPS){
+		output << "Applying Normal-distributed noise with width of " << noise_std_range*rho_std << " A\n";
+		grid_map = add_normal_noise(
+		                            grid_map,
+		                            noise_std_range*rho_std
+		                           );
 		output << "<- Done, took " << seconds_since(runtime)*1000.0 - current_ms << " ms.\n\n";
 		current_ms = seconds_since(runtime)*1000.0;
 	}
