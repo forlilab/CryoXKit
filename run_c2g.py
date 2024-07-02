@@ -39,4 +39,4 @@ if args.output_intermediate_densities is True and args.mask_file is not None:
 modified       = c2g.ModifyDensity(masked_density, args.log_min, args.log_width, args.log_x0)
 if args.output_intermediate_densities is True:
     c2g.WriteDensity(modified, "modified_density")
-c2g.WriteGridMaps(modified, 1)
+#c2g.WriteGridMaps(modified, 1)

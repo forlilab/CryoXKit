@@ -18,7 +18,7 @@ CXXFLAGS=-DC2G_VERSION=\"$(GIT_VERSION)\" -march=native -Wextra -std=c++11 -O3 -
 LDFLAGS=
 EXECUTABLE=cryo2grid
 
-SRCS=
+SRCS=ScalarMat.cpp
 OBJS=$(SRCS:.cpp=.o)
 
 all: $(OBJS)

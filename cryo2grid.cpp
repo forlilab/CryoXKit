@@ -214,7 +214,7 @@ std::vector<fp_num> apply_mask(
 	result[9]  = rho_max;
 	result[11] = rho_std;
 	// calculate median
-	std::vector<fp_num> density_hist(MEDIAN_BINS, 0);
+	std::vector<fp_num> density_hist(MEDIAN_BINS+1, 0);
 	fp_num inv_binwidth = MEDIAN_BINS / (rho_max - rho_min);
 	for(unsigned int j=(unsigned int)result[0]; j<result.size(); j++)
 		density_hist[(unsigned int)floor((result[j]-rho_min) * inv_binwidth)]++;
@@ -384,7 +384,7 @@ std::vector<fp_num> average_densities_to_grid(
 		(densities[0])[8] = rho_min;
 		(densities[0])[9] = rho_max;
 		// calculate median
-		std::vector<fp_num> density_hist(MEDIAN_BINS, 0);
+		std::vector<fp_num> density_hist(MEDIAN_BINS+1, 0);
 		fp_num inv_binwidth = MEDIAN_BINS / (rho_max - rho_min);
 		for(unsigned int j=(unsigned int)(densities[0])[0]; j<densities[0].size(); j++)
 			density_hist[(unsigned int)floor(((densities[0])[j]-rho_min) * inv_binwidth)]++;

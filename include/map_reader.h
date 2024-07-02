@@ -30,6 +30,8 @@
 #include <atomic>
 #include <algorithm>
 
+#include "ScalarMat.h"
+
 using namespace std;
 
 //                              start     extent     grid      cell axes    angles       origin     min, max, avg, std
@@ -182,6 +184,8 @@ inline void apply_periodicity(
 	while(r < 0) r += len;
 }
 
+#define GAUSS_ZIGGURAT_NORM (1.0/3.442619855899)
+
 inline std::vector<fp_num> gaussian_convolution(
                                                 std::vector<fp_num> density,
                                                 fp_num  sigma  = 2,
@@ -196,13 +200,38 @@ inline std::vector<fp_num> gaussian_convolution(
 	unsigned int g2      = g1 * map_y_p;
 	std::vector<fp_num> result(density.size());
 	memcpy(result.data(), density.data(), off * sizeof(fp_num));
-	fp_num cut           = cutoff / density[7];
-	fp_num g_factor      = density[7] * density[7] / (sigma * sigma);
-	fp_num cut2          = cut*cut;
 	fp_num rho_min       =  1e80;
 	fp_num rho_max       = -1e80;
 	fp_num rho_avg       = 0;
 	fp_num rho_std       = 0;
+	if(sigma < 0){ // only adding normal-distributed noise based on std.dev.
+		__uint32_t seed = time(NULL);
+		init_CMWC4096(seed);
+		zigset();
+		double scale = GAUSS_ZIGGURAT_NORM * fabs(sigma) * density[11];
+		for(unsigned int i = off;
+		                 i < density.size();
+		                 i++)
+		{
+			fp_num val = density[i] + ran_n()*scale;
+			result[i]  = val;
+			rho_min    = std::min(val, rho_min);
+			rho_max    = std::max(val, rho_max);
+			rho_avg   += val;
+			rho_std   += val*val;
+		}
+		rho_avg   /= g2*map_z_p;
+		rho_std   /= g2*map_z_p;
+		rho_std   -= rho_avg * rho_avg;
+		rho_std    = sqrt(rho_std);
+		result[8]  = rho_min;
+		result[9]  = rho_max;
+		result[11] = rho_std;
+		return result;
+	}
+	fp_num cut           = cutoff / density[7];
+	fp_num g_factor      = density[7] * density[7] / (sigma * sigma);
+	fp_num cut2          = cut*cut;
 	#pragma omp parallel for schedule(dynamic,1)
 	for(unsigned int i = 0;
 	                 i < g2*map_z_p;
@@ -239,12 +268,17 @@ inline std::vector<fp_num> gaussian_convolution(
 				}
 			}
 		}
-		integral = (wsum > 0) ? integral / wsum : 0;
-		result[i + off] = integral;
-		rho_min = std::min(integral, rho_min);
-		rho_max = std::max(integral, rho_max);
-		rho_avg += integral;
-		rho_std += integral*integral;
+		result[i + off] = (wsum > 0) ? integral / wsum : 0;
+	}
+	for(unsigned int i = off;
+	                 i < result.size();
+	                 i++)
+	{
+		fp_num val = result[i];
+		rho_min    = std::min(val, rho_min);
+		rho_max    = std::max(val, rho_max);
+		rho_avg   += val;
+		rho_std   += val*val;
 	}
 	rho_avg   /= g2*map_z_p;
 	rho_std   /= g2*map_z_p;
@@ -595,7 +629,7 @@ inline std::vector<fp_num> read_map_to_grid(
 		rho_std  = sqrt(rho_std);
 	}
 	// calculate median
-	std::vector<unsigned int> density_hist(MEDIAN_BINS, 0);
+	std::vector<unsigned int> density_hist(MEDIAN_BINS+1, 0);
 	fp_num inv_binwidth = MEDIAN_BINS / (rho_max - rho_min);
 	data_count = densities.size();
 	for(unsigned int i=0; i<data_count; i++)
@@ -731,8 +765,8 @@ inline std::vector<fp_num> read_map_to_grid(
 	grid_map[8]  = rho_min;
 	grid_map[9]  = rho_max;
 	grid_map[11] = rho_std;
-	if(gaussian_filter_sigma > EPS){
-		output << "Applying Gaussian filter with width of " << gaussian_filter_sigma << " A\n";
+	if(fabs(gaussian_filter_sigma) > EPS){
+		output << "Applying " << ((gaussian_filter_sigma > 0) ? "Gaussian" : "Normal-distributed noise") << " filter with width of " << fabs(gaussian_filter_sigma) << " A\n";
 		grid_map = gaussian_convolution(
 		                                grid_map,
 		                                gaussian_filter_sigma
@@ -746,9 +780,9 @@ inline std::vector<fp_num> read_map_to_grid(
 	rho_max      = grid_map[9];
 	memset(density_hist.data(), 0, MEDIAN_BINS*sizeof(unsigned int));
 	inv_binwidth = MEDIAN_BINS / (rho_max - rho_min);
-	for(unsigned int i=12; i<grid_map.size(); i++)
+	for(unsigned int i=grid_map[0]; i<grid_map.size(); i++)
 		density_hist[(unsigned int)floor((grid_map[i]-rho_min) * inv_binwidth)]++;
-	half_count   = (grid_map.size() - 12) >> 1; // find median == find bin number with just more than half the points
+	half_count   = (grid_map.size() - (int)grid_map[0]) >> 1; // find median == find bin number with just more than half the points
 	data_count   = 0;
 	for(median_idx = 0; (data_count < half_count) && (median_idx < MEDIAN_BINS); median_idx++)
 		data_count += density_hist[median_idx++];
@@ -1034,7 +1068,7 @@ inline void convert_map_to_mrc(std::string  filename)
 		rho_std  = sqrt(rho_std);
 	}
 	// calculate median
-	std::vector<unsigned int> density_hist(MEDIAN_BINS, 0);
+	std::vector<unsigned int> density_hist(MEDIAN_BINS+1, 0);
 	float inv_binwidth = MEDIAN_BINS / (rho_max - rho_min);
 	data_count = densities.size();
 	for(unsigned int i=0; i<data_count; i++)

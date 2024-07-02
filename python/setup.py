@@ -115,6 +115,7 @@ class CustomBuild(build):
         if not os.path.exists('src'):
             shutil.copytree('../include/', 'src/include',ignore=shutil.ignore_patterns('*.o', '*.d'))
             shutil.copy('../cryo2grid.cpp', 'src')
+            shutil.copy('../ScalarMat.cpp', 'src')
 
         self.run_command('build_ext')
         build.run(self)
@@ -127,6 +128,7 @@ class CustomInstall(install):
         if not os.path.exists('src'):
             shutil.copytree('../include', 'src/include',ignore=shutil.ignore_patterns('*.o', '*.d'))
             shutil.copy('../cryo2grid.cpp', 'src')
+            shutil.copy('../ScalarMat.cpp', 'src')
 
         self.run_command('build_ext')
         install.run(self)
@@ -148,6 +150,7 @@ class CustomSdist(sdist):
         if not os.path.exists('src'):
             shutil.copytree('../include/', 'src/include',ignore=shutil.ignore_patterns('*.o', '*.d'))
             shutil.copy('../cryo2grid.cpp', 'src')
+            shutil.copy('../ScalarMat.cpp', 'src')
 
         sdist.run(self)
 
@@ -227,7 +230,7 @@ if os.path.exists('python'):
 
 c2g_extension = Extension(
     'cryo2grid._cryo2grid_wrapper',
-    sources=['src/cryo2grid.cpp', c2g_swig_interface],
+    sources=['src/ScalarMat.cpp', 'src/cryo2grid.cpp', c2g_swig_interface],
     extra_link_args=('-fopenmp ').split(),
     swig_opts=['-threads']
 )
