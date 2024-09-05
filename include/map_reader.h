@@ -237,10 +237,6 @@ inline std::vector<fp_num> gaussian_convolution(
 	unsigned int g2      = g1 * map_y_p;
 	std::vector<fp_num> result(density.size());
 	memcpy(result.data(), density.data(), off * sizeof(fp_num));
-	fp_num rho_min       =  1e80;
-	fp_num rho_max       = -1e80;
-	fp_num rho_avg       = 0;
-	fp_num rho_std       = 0;
 	fp_num cut           = cutoff / density[7];
 	fp_num g_factor      = density[7] * density[7] / (sigma * sigma);
 	fp_num cut2          = cut*cut;
@@ -282,6 +278,10 @@ inline std::vector<fp_num> gaussian_convolution(
 		}
 		result[i + off] = (wsum > 0) ? integral / wsum : 0;
 	}
+	fp_num rho_min       =  1e80;
+	fp_num rho_max       = -1e80;
+	fp_num rho_avg       = 0;
+	fp_num rho_std       = 0;
 	for(unsigned int i = off;
 	                 i < result.size();
 	                 i++)
@@ -816,7 +816,7 @@ inline std::vector<fp_num> read_map_to_grid(
 	half_count   = (grid_map.size() - (int)grid_map[0]) >> 1; // find median == find bin number with just more than half the points
 	data_count   = 0;
 	for(median_idx = 0; (data_count < half_count) && (median_idx < MEDIAN_BINS); median_idx++)
-		data_count += density_hist[median_idx++];
+		data_count += density_hist[median_idx];
 	grid_map[10] = (fp_num)median_idx / MEDIAN_BINS;
 	output << "\t-> range: " << grid_map[8] << " to " << grid_map[9] << " (median: " << grid_map[10] * (grid_map[9] - grid_map[8]) + grid_map[8] << ")\n";
 	output << "<- Done, took " << seconds_since(runtime)*1000.0 - current_ms << " ms.\n\n";

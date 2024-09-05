@@ -222,7 +222,7 @@ std::vector<fp_num> apply_mask(
 	unsigned int median_idx = 0;
 	unsigned int data_count = 0;
 	for(median_idx = 0; (data_count < half_count) && (median_idx < MEDIAN_BINS); median_idx++)
-		data_count += density_hist[median_idx++];
+		data_count += density_hist[median_idx];
 	result[10] = (fp_num)median_idx / MEDIAN_BINS;
 	cout.precision(3);
 	cout.setf(ios::fixed, ios::floatfield);
@@ -394,7 +394,7 @@ std::vector<fp_num> average_densities_to_grid(
 		unsigned int median_idx = 0;
 		unsigned int data_count = 0;
 		for(median_idx = 0; (data_count < half_count) && (median_idx < MEDIAN_BINS); median_idx++)
-			data_count += density_hist[median_idx++];
+			data_count += density_hist[median_idx];
 		(densities[0])[10] = (fp_num)median_idx / MEDIAN_BINS;
 		(densities[0])[11] = 1;
 		cout.precision(3);
