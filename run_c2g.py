@@ -19,7 +19,7 @@ parser.add_argument('-g', '--grid-maps', nargs='+', type=str, help='Grid map fil
 parser.add_argument('-b', '--gaussian_filter_sigma', type=float, help='Width of Gaussian filter in Angstrom (0 means no filter)', default=0)
 parser.add_argument('-n', '--noise_std_range', type=float, help='Fraction of std.dev. of density map to add as normal-distributed noise (0 means no filter)', default=0)
 parser.add_argument('-l', '--log_min', type=float, help='Min for logistic curve', default=-3.0)
-parser.add_argument('-w', '--log_width', type=float, help='width for logistic curve (<0 multiplier of data std.dev.)', default=-4)
+parser.add_argument('-w', '--log_width', type=float, help='width for logistic curve (<0 multiplier of 10% * data std.dev.)', default=-2)
 parser.add_argument('-x0', '--log_x0', type=float, help='relative inflection point for logistic curve (<0 set automatically based on data median)', default=-1)
 parser.add_argument('-c', '--rmsd_cutoff', type=float, help='RMSD cutoff for automatic alignment', default=2.0)
 parser.add_argument('-s', '--mask-file', type=str, help='PDB file to use to mask density')

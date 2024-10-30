@@ -31,8 +31,8 @@ inline std::vector<fp_num> modify_densities(
                                             std::vector<fp_num> densities,
                                             const int           mod_fxn    = no_modifier,
                                             const fp_num        log_max    = -3.0,
-                                                  fp_num        width      = -4,
-                                                  fp_num        x0         = -1
+                                                  fp_num        width      = -2.0,
+                                                  fp_num        x0         = -1.0
                                            )
 {
 	if(mod_fxn == no_modifier) return densities;
