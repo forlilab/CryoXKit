@@ -10,7 +10,7 @@ For direct Python compilation and installation (as above, we recommend LLVM from
 
 # Syntax
 
-For the installed Python version please run `./cryoXkit.py`.
+For the installed Python version please run `./run_cryoXkit.py`.
 
 The standalone terminal tool CryoXKit needs parameters for the density map file and AD4 grid maps to modify *or* grid map center x, y, z coordinates, grid map x, y, z dimensions, and optionally grid spacing (default is 0.375 A), type of map to write (0 .. nothing, 1 .. AD4 grid map, 2 .. MRC grid map), as well as the modifier function type (0 .. none, 1 .. logistics) when only the modifier map is of interest:
 ```
