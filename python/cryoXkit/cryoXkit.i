@@ -13,7 +13,7 @@
 ############################################\n"
 %enddef
 
-%module(docstring=DOCSTRING, package="cryo2grid") cryo2grid_wrapper
+%module(docstring=DOCSTRING, package="cryoXkit") cryoXkit_wrapper
 
 %begin %{
 #define SWIG_PYTHON_2_UNICODE
@@ -38,5 +38,5 @@ namespace std {
     %template(ConstCharVector)    vector<const char*>;
 }
 
-%include "c2g.i"
+%include "cxk.i"
 

@@ -18,7 +18,7 @@
 #include "include/map_reader.h"
 #include "include/map_writer.h"
 #include "include/map_modifier.h"
-#include "include/cryo2grid.h"
+#include "include/cryoXkit.h"
 #ifndef _WIN32
 // libgen.h contains basename() and dirname() from a fullpath name
 // Specific: to open correctly grid map field fiels and associated files
@@ -409,7 +409,7 @@ void print_version_info()
 {
 	#pragma omp critical
 	{
-		cout << "\nScripps Research Cryo2Grid" << " (" << C2G_VERSION << ")\n";
+		cout << "\nScripps Research CryoXKit" << " (" << CXK_VERSION << ")\n";
 		cout << "Compiled " << __DATE__ << "\n\n";
 	}
 }

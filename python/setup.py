@@ -45,7 +45,7 @@ def in_conda():
 
 
 def find_version():
-    """Extract the current version of Cryo2Grid
+    """Extract the current version of CryoXKit
     
     The version will be obtained from (in priority order):
     1. version.py (file created only when using GitHub Actions)
@@ -53,15 +53,15 @@ def find_version():
     3. BASE_VERSION (as failback)
 
     """
-    init_file = os.path.join(base_dir, 'cryo2grid', '__init__.py')
-    version_file = os.path.join(base_dir, 'cryo2grid', 'version.py')
+    init_file = os.path.join(base_dir, 'cryoXkit', '__init__.py')
+    version_file = os.path.join(base_dir, 'cryoXkit', 'version.py')
     if os.path.isfile(version_file):
         with open(version_file) as f:
             version = f.read().strip()
 
         print('Version found: %s (from version.py)' % version)
         f = open(init_file, "w")
-        f.write('#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n#\n# Cryo2Grid\n#\n\n__version__ = "%s"\n\nfrom .cryo2grid import Cryo2Grid\n\n__all__ = ["Cryo2Grid"]\n' % version)
+        f.write('#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n#\n# CryoXKit\n#\n\n__version__ = "%s"\n\nfrom .cryoXkit import CryoXKit\n\n__all__ = ["CryoXKit"]\n' % version)
         return version
 
     try:
@@ -74,7 +74,7 @@ def find_version():
 
         print('Version found %s (from git describe)' % version)
         f = open(init_file, "w")
-        f.write('#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n#\n# Cryo2Grid\n#\n\n__version__ = "%s"\n\nfrom .cryo2grid import Cryo2Grid\n\n__all__ = ["Cryo2Grid"]\n' % version)
+        f.write('#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n#\n# CryoXKit\n#\n\n__version__ = "%s"\n\nfrom .cryoXkit import CryoXKit\n\n__all__ = ["CryoXKit"]\n' % version)
         return version
     except:
         pass
@@ -89,10 +89,10 @@ def find_version():
 
                 print('Version found %s (from BASE_VERSION)' % version)
                 f = open(init_file, "w")
-                f.write('#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n#\n# Cryo2Grid\n#\n\n__version__ = "%s"\n\nfrom .cryo2grid import Cryo2Grid\n\n__all__ = ["Cryo2Grid"]\n' % version)
+                f.write('#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n#\n# CryoXKit\n#\n\n__version__ = "%s"\n\nfrom .cryoXkit import CryoXKit\n\n__all__ = ["CryoXKit"]\n' % version)
                 return version
     
-    raise RuntimeError('Could not find version string for Cryo2Grid.')
+    raise RuntimeError('Could not find version string for CryoXKit.')
 
 
 
@@ -114,7 +114,7 @@ class CustomBuild(build):
         # Source: https://github.com/pypa/pip/issues/3500
         if not os.path.exists('src'):
             shutil.copytree('../include/', 'src/include',ignore=shutil.ignore_patterns('*.o', '*.d'))
-            shutil.copy('../cryo2grid.cpp', 'src')
+            shutil.copy('../cryoXkit.cpp', 'src')
             shutil.copy('../ScalarMat.cpp', 'src')
 
         self.run_command('build_ext')
@@ -127,7 +127,7 @@ class CustomInstall(install):
         # This is not called when creating wheels for linux in the docker image
         if not os.path.exists('src'):
             shutil.copytree('../include', 'src/include',ignore=shutil.ignore_patterns('*.o', '*.d'))
-            shutil.copy('../cryo2grid.cpp', 'src')
+            shutil.copy('../cryoXkit.cpp', 'src')
             shutil.copy('../ScalarMat.cpp', 'src')
 
         self.run_command('build_ext')
@@ -143,13 +143,13 @@ class CustomSdist(sdist):
     def make_release_tree(self, base_dir, files):
         sdist.make_release_tree(self, base_dir, files)
         link = 'hard' if hasattr(os, 'link') else None
-        pkg_dir = os.path.join(base_dir, 'cryo2grid')
-        self.copy_file(os.path.join('cryo2grid', 'cryo2grid.i'), pkg_dir, link=link)
+        pkg_dir = os.path.join(base_dir, 'cryoXkit')
+        self.copy_file(os.path.join('cryoXkit', 'cryoXkit.i'), pkg_dir, link=link)
 
     def run(self):
         if not os.path.exists('src'):
             shutil.copytree('../include/', 'src/include',ignore=shutil.ignore_patterns('*.o', '*.d'))
-            shutil.copy('../cryo2grid.cpp', 'src')
+            shutil.copy('../cryoXkit.cpp', 'src')
             shutil.copy('../ScalarMat.cpp', 'src')
 
         sdist.run(self)
@@ -166,10 +166,10 @@ class CustomBuildExt(build_ext):
         # overridden using -I and -L command line options to python setup.py build_ext.
         build_ext.finalize_options(self)
 
-        # Cryo2Grid
+        # CryoXKit
         self.include_dirs.append('src')
         # SWIG
-        # shadow, creates a pythonic wrapper around cryo2grid
+        # shadow, creates a pythonic wrapper around cryoXkit
         # castmode
         self.swig_opts = ['-c++', '-small', '-naturalvar', '-fastdispatch', '-shadow']
         self.swig_opts += ['-I%s' % i for i in self.include_dirs]
@@ -210,7 +210,7 @@ class CustomBuildExt(build_ext):
 #                print('Warning: compiler flag %s is not present, cannot remove it.' % remove_flag)
                 pass
 
-        self.compiler.compiler_so.append('-DC2G_VERSION=\"%s\"' % find_version())
+        self.compiler.compiler_so.append('-DCXK_VERSION=\"%s\"' % find_version())
         self.compiler.compiler_so.insert(2, "-Wno-deprecated")
         self.compiler.compiler_so.append("-std=gnu++11")
         self.compiler.compiler_so.append("-Wno-long-long")
@@ -222,35 +222,35 @@ class CustomBuildExt(build_ext):
 
 # Dirty fix when the compilation is not done in ./python
 # Fix for readthedocs
-c2g_swig_interface = 'cryo2grid/cryo2grid.i'
+cxk_swig_interface = 'cryoXkit/cryoXkit.i'
 package_dir = {}
 if os.path.exists('python'):
-    c2g_swig_interface = 'python/' + c2g_swig_interface
-    package_dir = {'cryo2grid': 'python/cryo2grid'}
+    cxk_swig_interface = 'python/' + cxk_swig_interface
+    package_dir = {'cryoXkit': 'python/cryoXkit'}
 
-c2g_extension = Extension(
-    'cryo2grid._cryo2grid_wrapper',
-    sources=['src/ScalarMat.cpp', 'src/cryo2grid.cpp', c2g_swig_interface],
+cxk_extension = Extension(
+    'cryoXkit._cryoXkit_wrapper',
+    sources=['src/ScalarMat.cpp', 'src/cryoXkit.cpp', cxk_swig_interface],
     extra_link_args=('-fopenmp ').split(),
     swig_opts=['-threads']
 )
 
 setup(
-    name='cryo2grid',
+    name='cryoXkit',
     version=find_version(),
     author='Andreas F. Tillack, Althea A. Hansel, Matthew Holcomb, Stefano Forli',
     author_email='forli@scripps.edu',
     license='LGPL-2.1',
     url='https://forlilab.org',
-    description='Python interface to Cryo2Grid',
+    description='Python interface to CryoXKit',
     long_description=open(os.path.join(base_dir, 'README.md')).read(),
     long_description_content_type="text/markdown",
     zip_safe=False,
     cmdclass={'build': CustomBuild, 'build_ext': CustomBuildExt, 'install': CustomInstall, 'sdist': CustomSdist},
-    packages=['cryo2grid'],
+    packages=['cryoXkit'],
     package_dir=package_dir,
     python_requires='>=3.5.0',
-    ext_modules=[c2g_extension],
+    ext_modules=[cxk_extension],
     classifiers=[
         'Environment :: Console',
         'Environment :: Other Environment',

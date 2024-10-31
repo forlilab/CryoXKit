@@ -10,8 +10,8 @@
 /********************************************/
 
 
-#ifndef INCLUDED_CRYO2GRID
-#define INCLUDED_CRYO2GRID
+#ifndef INCLUDED_CRYOXKIT
+#define INCLUDED_CRYOXKIT
 
 #include <stdlib.h>
 #include <iostream>
@@ -102,5 +102,5 @@ std::vector<fp_num> average_densities_to_grid(
                                               bool         output_align_rec      = false
                                              );
 
-#endif // INCLUDED_CRYO2GRID
+#endif // INCLUDED_CRYO2KIT
 

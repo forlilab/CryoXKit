@@ -152,7 +152,7 @@ inline void write_grid_map_mrc(
 		header.extra[15] = 0xAD;
 	}
 	memset(header.labels,0,800);
-	strncpy(header.labels, "Cryo2Grid MRC grid map", 23);
+	strncpy(header.labels, "CryoXKit MRC grid map", 22);
 	header.nx       = map_x_dim + 1;
 	header.mx       = map_x_dim + 1;
 	header.ny       = map_y_dim + 1;

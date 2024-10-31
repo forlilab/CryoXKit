@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Cryo2Grid
+# CryoXKit
 #
 
 import os
@@ -9,11 +9,11 @@ import glob
 import stat
 import sys
 
-from .cryo2grid_wrapper import *
+from .cryoXkit_wrapper import *
 
-class Cryo2Grid:
+class CryoXKit:
     def __init__(self, map_files=None, map_receptors=None, rmsd_cutoff=-1.0, gaussian_filter_sigma=0, noise_std_range=0, repeat_unit_cell=True, output_align_rec=False):
-        """Initialize the Cryo2Grid object.
+        """Initialize the CryoXKit object.
 
         Arguments:
             map_file (str): Map (X-ray or CryoEM) file name

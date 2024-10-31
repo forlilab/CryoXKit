@@ -5,7 +5,7 @@
 #include "include/map_reader.h"
 #include "include/map_writer.h"
 #include "include/map_modifier.h"
-#include "include/cryo2grid.h"
+#include "include/cryoXkit.h"
 %}
 
 %include "include/Config.h"
@@ -14,4 +14,4 @@
 %include "include/map_reader.h"
 %include "include/map_writer.h"
 %include "include/map_modifier.h"
-%include "include/cryo2grid.h"
+%include "include/cryoXkit.h"

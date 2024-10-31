@@ -1,4 +1,4 @@
-# Cryo2Grid - Python API
+# CryoXKit - Python API
 
 ### Requirements
 
@@ -10,8 +10,8 @@ Minimum requirements:
 
 We recommend to install the Anaconda distribution (https://www.continuum.io/downloads) for a clean python environment with all prerequisites already installed. To install:
 ```bash
-$ conda create -n cryo2grid python=3
-$ conda activate cryo2grid
+$ conda create -n cryoXkit python=3
+$ conda activate cryoXkit
 $ conda install -c conda-forge swig
 ```
 

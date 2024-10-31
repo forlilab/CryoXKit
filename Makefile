@@ -14,15 +14,15 @@ ifeq ($(UNAME_CMD),Darwin)
 	CXX=clang++
 endif
 GIT_VERSION := $(shell git describe --abbrev=7 --dirty --always --tags | sed 's/dirty/mod/g')
-CXXFLAGS=-DC2G_VERSION=\"$(GIT_VERSION)\" -march=native -Wextra -std=c++11 -O3 -fopenmp
+CXXFLAGS=-DCXK_VERSION=\"$(GIT_VERSION)\" -march=native -Wextra -std=c++11 -O3 -fopenmp
 LDFLAGS=
-EXECUTABLE=cryo2grid
+EXECUTABLE=cryoXkit
 
 SRCS=ScalarMat.cpp
 OBJS=$(SRCS:.cpp=.o)
 
 all: $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $(EXECUTABLE) cryo2grid.cpp $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(EXECUTABLE) cryoXkit.cpp $(OBJS)
 
 DEPS := $(patsubst %.o,%.d,$(OBJS))
 -include $(DEPS)
@@ -33,7 +33,7 @@ DEPS := $(patsubst %.o,%.d,$(OBJS))
 .PHONY: $(EXECUTABLE) python
 
 $(EXECUTABLE): $(OBJS)
-	$(CXX) $(LDFLAGS) -o $(EXECUTABLE) cryo2grid.cpp $(OBJS)
+	$(CXX) $(LDFLAGS) -o $(EXECUTABLE) cryoXkit.cpp $(OBJS)
 
 python:
 	rm -rf python/build/
@@ -43,9 +43,9 @@ python:
 clean:
 	rm -rf python/build/
 	rm -rf python/src/
-	rm -rf python/cryo2grid.egg-info/
-	rm -rf python/cryo2grid/__pycache__/
-	rm -rf python/cryo2grid/__init__.py
-	rm -f python/cryo2grid/cryo2grid_wrap.cpp
-	rm -f python/cryo2grid/cryo2grid_wrapper.py
+	rm -rf python/cryoXkit.egg-info/
+	rm -rf python/cryoXkit/__pycache__/
+	rm -rf python/cryoXkit/__init__.py
+	rm -f python/cryoXkit/cryoXkit_wrap.cpp
+	rm -f python/cryoXkit/cryoXkit_wrapper.py
 	rm -f $(OBJS) *.d $(EXECUTABLE) example/*.map example/*.grid.mrc

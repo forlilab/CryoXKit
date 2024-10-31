@@ -1,4 +1,4 @@
-name: cryo2grid
+name: cryoXkit
 channels:
   - conda-forge
 dependencies:

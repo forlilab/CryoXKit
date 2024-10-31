@@ -1180,7 +1180,7 @@ inline void convert_map_to_mrc(std::string  filename)
 		out_header.extra[15] = 0xAD;
 	}
 	memset(out_header.labels,0,800);
-	strncpy(out_header.labels, "Cryo2Grid MRC grid map", 23);
+	strncpy(out_header.labels, "CryoXKit MRC grid map", 22);
 	out_header.nx       = x_dim;
 	out_header.mx       = inv_x_step;
 	out_header.ny       = y_dim;
