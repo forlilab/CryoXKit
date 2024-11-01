@@ -202,6 +202,7 @@ class CustomBuildExt(build_ext):
 
         print('- extra link args: %s' % self.extensions[0].extra_link_args)
 
+        # Remove compiler flags if we can
         remove_flags = ["-Wstrict-prototypes", "-Wall", "-Wsign-compare", "-g"]
         for remove_flag in remove_flags:
             try:
@@ -210,13 +211,19 @@ class CustomBuildExt(build_ext):
 #                print('Warning: compiler flag %s is not present, cannot remove it.' % remove_flag)
                 pass
 
-        self.compiler.compiler_so.append('-DCXK_VERSION=\"%s\"' % find_version())
-        self.compiler.compiler_so.insert(2, "-Wno-deprecated")
-        self.compiler.compiler_so.append("-std=gnu++11")
-        self.compiler.compiler_so.append("-Wno-long-long")
-        self.compiler.compiler_so.append("-fopenmp")
+        cxk_compiler_options = [
+                                '-DCXK_VERSION=\"%s\"' % find_version(),
+                                "-Wno-deprecated",
+                                "-std=gnu++11",
+                                "-Wno-long-long",
+                                "-fopenmp"
+                               ]
 
-        print('- compiler options: %s' % self.compiler.compiler_so)
+        print('- compiler options: %s' % (self.compiler.compiler_so + cxk_compiler_options))
+
+        for ext in self.extensions:
+            ext.extra_compile_args += cxk_compiler_options
+
         build_ext.build_extensions(self)
 
 
