@@ -67,7 +67,7 @@ inline std::vector<fp_num> modify_densities(
 	if(mod_fxn == log_modifier){
 		cout.precision(3);
 		cout << " using logistics function modifier (l: " << log_max << " kcal/mol, w: " << width << " kcal/mol, x0: " << x0 << ")\n";
-		const fp_num exp_shift  = dens_max - (dens_max - dens_min) * x0; // rho_max - x0*(rho_max - rho_min)
+		const fp_num exp_shift  = dens_min + x0 * (dens_max - dens_min); // rho_min + x0*(rho_max - rho_min)
 		for(unsigned int i=(unsigned int)densities[0]; i<nr_points; i++){
 			density = log_max / (1.0 + exp((exp_shift - densities[i] * norm) / width));
 			modified_density[i] = density;
