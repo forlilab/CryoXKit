@@ -26,6 +26,9 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <cstdint>
+
+using std::uint32_t;
 
 #ifdef __SSE2__
 #include <immintrin.h>
