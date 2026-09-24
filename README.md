@@ -2,6 +2,8 @@
 
 A tool to (currently) read DSN6, BRIX, and MRC/CCP4 crystallography and cryo-EM files and interpolate their density values onto a cartesian grid map as used by AutoDock software. The tool can output AD4 grid maps (default) or grid MRC files.
 
+If you use CryoXKit, please cite: ["Docking guidance with experimental ligand structural density improves docking pose prediction and virtual screening performance"](https://onlinelibrary.wiley.com/doi/10.1002/pro.70082)
+
 # Build instructions
 
 On most platforms only "make" should be needed. On macOS the compiler in the Makefile needs to be changed to `clang++` to use Brew's version supporting OpenMP - otherwise `-fopenmp` needs to be taken out of the `CXXFLAGS` in the Makefile.
